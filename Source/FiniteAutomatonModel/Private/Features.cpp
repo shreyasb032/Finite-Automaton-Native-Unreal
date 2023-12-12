@@ -83,7 +83,6 @@ void AFeatures::SetStationInfo(int start_station, int end_station)
 	this->end_station_id = end_station;
 }
 
-
 void AFeatures::GenerateRemainingFeatures(AFeatures* previous)
 {
 	this->agv_to_user_distance = (this->user_location - this->agv_location).GetAbs();
@@ -123,7 +122,6 @@ void AFeatures::GenerateRemainingFeatures(AFeatures* previous)
 
 }
 
-
 bool AFeatures::WithinRoadBounds(FVector2D* location, float error_range)
 {
 	if (location->Y < this->constants.SIDEWALK_1["Low"] - error_range ||
@@ -133,7 +131,6 @@ bool AFeatures::WithinRoadBounds(FVector2D* location, float error_range)
 	}
 	return false;
 }
-
 
 bool AFeatures::WithinSidewalkBounds(FVector2D* location, float error_range)
 {	
@@ -154,7 +151,6 @@ bool AFeatures::WithinSidewalkBounds(FVector2D* location, float error_range)
 	return false;
 }
 
-
 void AFeatures::ClosestStationComputations()
 {
 	float minimum_distance = INFINITY;
@@ -172,7 +168,6 @@ void AFeatures::ClosestStationComputations()
 	this->closest_station = _closest_station;
 	this->distance_to_closest_station = (this->constants.STATIONS[_closest_station] - this->user_location).GetAbs();
 }
-
 
 void AFeatures::StartAndEndStationsComputations()
 {
@@ -202,7 +197,6 @@ void AFeatures::StartAndEndStationsComputations()
 		this->facing_end_station = false;
 	}
 }
-
 
 bool AFeatures::LookingAtAGV()
 {
@@ -244,7 +238,6 @@ bool AFeatures::FacingRoad()
 	return false;
 }
 
-
 void AFeatures::GazingStationComputations()
 {
 	float maximum_cos = -1.0;
@@ -264,7 +257,6 @@ void AFeatures::GazingStationComputations()
 	this->gazing_station_cos = maximum_cos;
 }
 
-
 bool AFeatures::IntentToCrossComputations()
 {
 	if (this->gazing_station == -1)
@@ -273,7 +265,7 @@ bool AFeatures::IntentToCrossComputations()
 	}
 
 	if (this->gazing_station_cos > this->constants.GAZING_ANGLE_THRESHOLD_COS ||
-		this->LookingAtAGV())
+		this->looking_at_agv)
 	{
 		return true;
 	}

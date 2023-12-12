@@ -24,12 +24,13 @@ protected:
 public:	
 	// Called every frame
 	//virtual void Tick(float DeltaTime) override;
+	UFUNCTION(BlueprintCallable)
 	FString GetState(AFeatures* current);
 	FString CurrentState;
 	TArray<bool> error_flags;
 
 	// function to reset it for each new AGV
-	UFUNCTION(Blueprintable)
+	UFUNCTION(BlueprintCallable)
 	bool reset();
 
 
