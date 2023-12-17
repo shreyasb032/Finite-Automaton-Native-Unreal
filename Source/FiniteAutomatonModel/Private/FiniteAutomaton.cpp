@@ -98,7 +98,10 @@ bool AFiniteAutomaton::StartStateChecker(AFeatures* current)
 bool AFiniteAutomaton::WaitingStateChecker(AFeatures* current)
 {
 	bool stationary = !current->is_user_moving;
-	return stationary;
+	bool facing_road = current->facing_road;
+	bool looking_at_agv = current->looking_at_agv;
+	// return stationary
+	return stationary && (facing_road || looking_at_agv);
 }
 
 bool AFiniteAutomaton::CrossingStateChecker(AFeatures* current)
@@ -108,7 +111,8 @@ bool AFiniteAutomaton::CrossingStateChecker(AFeatures* current)
 	bool facing_road = current->facing_road;
 	bool looking_at_agv = current->looking_at_agv;
 
-	if (moving && on_road && (facing_road || looking_at_agv)) return true;
+	//if (moving && on_road && (facing_road || looking_at_agv)) return true;
+	if (moving && on_road) return true;
 
 	return false;
 }

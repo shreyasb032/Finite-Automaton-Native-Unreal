@@ -6,7 +6,7 @@
 
 Constants::Constants()
 {
-	this->FRAMERATE = 20.0;
+	this->FRAMERATE = 1.0;
 	this->WALK_WAIT_THRESHOLD = 80.0;
 
 	this->STATIONS.Add(1, FVector2D(1580, 8683));
@@ -23,7 +23,7 @@ Constants::Constants()
 	this->MARGIN_NEAR_SIDEWALKS = 100.;
 	this->STATION_LENGTH = 500.;
 
-	this->GAZING_ANGLE_THRESHOLD = 30.0;
+	this->GAZING_ANGLE_THRESHOLD = 40.0;
 	this->GAZING_ANGLE_THRESHOLD_RADIANS = PI / 180 * this->GAZING_ANGLE_THRESHOLD;
 	this->GAZING_ANGLE_THRESHOLD_COS = std::cos(this->GAZING_ANGLE_THRESHOLD_RADIANS);
 

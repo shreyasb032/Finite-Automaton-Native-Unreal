@@ -124,7 +124,7 @@ void AFeatures::GenerateRemainingFeatures(AFeatures* previous)
 
 bool AFeatures::WithinRoadBounds(FVector2D* location, float error_range)
 {
-	if (location->Y < this->constants.SIDEWALK_1["Low"] - error_range ||
+	if (location->Y < this->constants.SIDEWALK_1["Low"] - error_range &&
 		location->Y > this->constants.SIDEWALK_2["High"] + error_range)
 	{
 		return true;
@@ -222,15 +222,15 @@ bool AFeatures::FacingSidewalk()
 
 bool AFeatures::FacingRoad()
 {
-	float road_midpoint = 0.5 * (this->constants.SIDEWALK_1["LOW"] + this->constants.SIDEWALK_2["High"]);
+	float road_midpoint = 0.5 * (this->constants.SIDEWALK_1["Low"] + this->constants.SIDEWALK_2["High"]);
 	
 	// IF ABOVE THE ROAD MIDPOINT AND LOOKING DOWN
-	if (this->user_location.X > road_midpoint && -this->gaze_vector_2d.X > this->constants.GAZING_ANGLE_THRESHOLD_COS)
+	if (this->user_location.Y > road_midpoint && -this->gaze_vector_2d.Y > this->constants.GAZING_ANGLE_THRESHOLD_COS)
 	{
 		return true;
 	}
 	// IF BELOW THE ROAD MIDPOINT AND LOOKING UP
-	if (this->user_location.X < road_midpoint && this->gaze_vector_2d.X > this->constants.GAZING_ANGLE_THRESHOLD_COS)
+	if (this->user_location.Y < road_midpoint && this->gaze_vector_2d.Y > this->constants.GAZING_ANGLE_THRESHOLD_COS)
 	{
 		return true;
 	}
