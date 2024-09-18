@@ -26,8 +26,14 @@ public:
 	//virtual void Tick(float DeltaTime) override;
 	UFUNCTION(BlueprintCallable)
 	FString GetState(AFeatures* current);
-	FString CurrentState;
+	FString current_state_name;
+	int current_state_id;
+	int prev_state_id;
 	TArray<bool> error_flags;
+	TMap<int, FString> idx_to_name;
+	
+	// The MLE probabilities of transition
+	TMap<int, TArray<float>> MLE;
 
 	// function to reset it for each new AGV
 	UFUNCTION(BlueprintCallable)
@@ -38,23 +44,23 @@ private:
 	Constants constants;
 
 	// State constraint checkers
-	bool StartStateChecker(AFeatures* current);
+	bool AtStationStateChecker(AFeatures* current) const;
 	bool WaitingStateChecker(AFeatures* current);
 	bool CrossingStateChecker(AFeatures* current);
-	bool ApproachingSidewalkStateChecker(AFeatures* current);
+	bool ApproachingSidewalkStateChecker(AFeatures* current) const;
 	bool MovingAlongSidewalkStateChecker(AFeatures* current);
-	bool ApproachingStationStateChecker(AFeatures* current);
-	bool ArrivedStateChecker(AFeatures* current);
+	bool ApproachingStationStateChecker(AFeatures* current) const;
+	//bool ArrivedStateChecker(AFeatures* current) const;
 
 	// Transition models
-	FString HandleErrorState(AFeatures* current);
-	FString HandleStartState(AFeatures* current);
-	FString HandleApproachSidewalkState(AFeatures* current);
-	FString HandleWaitState(AFeatures* current);
-	FString HandleMovingAlongSidewalkState(AFeatures* current);
-	FString HandleCrossState(AFeatures* current);
-	FString HandleApproachStationState(AFeatures* current);
-	FString HandleArrivedState(AFeatures* current);
+	int HandleErrorState(AFeatures* current);
+	int HandleAtStationState(AFeatures* current);
+	int HandleApproachSidewalkState(AFeatures* current);
+	int HandleWaitState(AFeatures* current) const;
+	int HandleMovingAlongSidewalkState(AFeatures* current) const;
+	int HandleCrossState(AFeatures* current) const;
+	int HandleApproachStationState(AFeatures* current);
+	//FString HandleArrivedState(AFeatures* current);
 
-	FString ConstraintChecking(FString current_state, AFeatures* current);
+	int ConstraintChecking(int current_state_id, AFeatures* current);
 };

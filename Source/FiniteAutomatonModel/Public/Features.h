@@ -42,7 +42,7 @@ public:
 
 	UPROPERTY(BlueprintReadOnly)
 	bool is_user_moving;
-	//float wait_time;
+	float wait_time;
 	bool intent_to_cross;
 	int gazing_station;
 	float gazing_station_cos;
@@ -94,7 +94,7 @@ private:
 	bool WithinRoadBounds(FVector2D* location, float error_range);
 	void ClosestStationComputations();
 	void StartAndEndStationsComputations();
-	bool LookingAtAGV();
+	bool LookingAtAGV() const;
 	bool FacingSidewalk();
 	bool FacingRoad();
 	void GazingStationComputations();

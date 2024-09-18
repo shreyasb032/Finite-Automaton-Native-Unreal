@@ -10,9 +10,26 @@ AFiniteAutomaton::AFiniteAutomaton()
 	PrimaryActorTick.bCanEverTick = false;
 
 	// Assumes that the starting state is error state
-	this->CurrentState = "Error";
+	this->current_state_id = -1;
+	this->prev_state_id = -1;
 	this->constants = Constants();
 	this->error_flags = { true, true, false };
+	this->idx_to_name.Add(-1, "Error");
+	this->idx_to_name.Add(0, "At Station");
+	this->idx_to_name.Add(1, "Approach Sidewalk");
+	this->idx_to_name.Add(2, "Wait");
+	this->idx_to_name.Add(3, "Move Along Sidewalk");
+	this->idx_to_name.Add(4, "Cross");
+	this->idx_to_name.Add(5, "Approach Target Station");
+	this->current_state_name = this->idx_to_name[this->current_state_id];
+		
+	// Manually added the MLE transition probabilties
+	this->MLE.Add(0, { 0.950089, 0.018987, 0.000000, 0.000000, 0.252874, 0.0000 });
+	this->MLE.Add(1, { 0.023619, 0.126582, 0.562738, 0.000000, 0.000000, 0.0050 });
+	this->MLE.Add(2, { 0.022282, 0.805907, 0.087452, 0.015152, 0.000000, 0.0075 });
+	this->MLE.Add(3, { 0.000446, 0.008439, 0.087452, 0.003367, 0.004598, 0.9200 });
+	this->MLE.Add(4, { 0.000000, 0.040084, 0.262357, 0.850168, 0.000000, 0.0025 });
+	this->MLE.Add(5, { 0.003565, 0.000000, 0.000000, 0.131313, 0.000000, 0.0650 });
 }
 
 // Called when the game starts or when spawned
@@ -32,56 +49,61 @@ void AFiniteAutomaton::BeginPlay()
 FString AFiniteAutomaton::GetState(AFeatures* current)
 {
 	// If the current state is error, run state checker to return the state that satisfies the constraints
-	if (this->CurrentState.Compare("Error") == 0)
+	if (this->current_state_id == -1)
 	{
-		this->CurrentState = this->HandleErrorState(current);
+		this->current_state_id = this->HandleErrorState(current);
 	}
-	// If the current state is Start, handle it
-	else if (this->CurrentState.Compare("Start") == 0)
+	// If the current state is At Station, handle it
+	else if (this->current_state_id == 0)
 	{
-		this->CurrentState = this->HandleStartState(current);
+		this->current_state_id = this->HandleAtStationState(current);
 	}
 	// If the current state is Approach Sidewalk, handle it
-	else if (this->CurrentState.Compare("Approach Sidewalk") == 0) {
-		this->CurrentState = this->HandleApproachSidewalkState(current);
+	else if (this->current_state_id == 1) {
+		this->current_state_id = this->HandleApproachSidewalkState(current);
 	}
 	// If the current state is Wait, handle it
-	else if (this->CurrentState.Compare("Wait") == 0) {
-		this->CurrentState = this->HandleWaitState(current);
+	else if (this->current_state_id == 2) {
+		this->current_state_id = this->HandleWaitState(current);
 	}
 	// If the current state is Move Along Sidewalk, handle it
-	else if (this->CurrentState.Compare("Move Along Sidewalk") == 0) {
-		this->CurrentState = this->HandleMovingAlongSidewalkState(current);
+	else if (this->current_state_id == 3) {
+		this->current_state_id = this->HandleMovingAlongSidewalkState(current);
 	}
 	// If the current state is Cross, handle it
-	else if (this->CurrentState.Compare("Cross") == 0) {
-		this->CurrentState = this->HandleCrossState(current);
+	else if (this->current_state_id == 4) {
+		this->current_state_id = this->HandleCrossState(current);
 	}
 	// If the current state is Approach Target Station, handle it
-	else if (this->CurrentState.Compare("Approach Target Station") == 0) {
-		this->CurrentState = this->HandleApproachStationState(current);
+	else if (this->current_state_id == 5) {
+		this->current_state_id = this->HandleApproachStationState(current);
 	}
-	// if the current state is Arrived, handle it (this does not do anything, just here to maintain consistency)
-	else if (this->CurrentState.Compare("Arrived") == 0) {
-		this->CurrentState = this->HandleArrivedState(current);
+	else {
+		// Do nothing
 	}
 
 	// Error handling. For the new current state, check if the constraints are satisfied. If not, add to the error pile. 
 	// If the error pile is full, change the current state to Error
-	this->CurrentState = ConstraintChecking(this->CurrentState, current);
+	this->current_state_id = ConstraintChecking(this->current_state_id, current);
+	this->current_state_name = this->idx_to_name[this->current_state_id];
 
-	return this->CurrentState;
+	if (this->current_state_id != -1) {
+		this->prev_state_id = this->current_state_id;
+	}
+
+	return this->current_state_name;
 }
 
 bool AFiniteAutomaton::reset()
 {
-	this->CurrentState = "Error";
+	this->current_state_id = -1;
+	this->current_state_name = this->idx_to_name[this->current_state_id];
 	this->error_flags = { true, true, false };
 
 	return true;
 }
 
-bool AFiniteAutomaton::StartStateChecker(AFeatures* current)
+bool AFiniteAutomaton::AtStationStateChecker(AFeatures* current) const
 {
 	bool near_start_station = current->distance_from_start_station.X < this->constants.STATION_LENGTH;
 	near_start_station = near_start_station && current->distance_from_start_station.Y < this->constants.AT_STATION_THRESHOLD;
@@ -117,7 +139,7 @@ bool AFiniteAutomaton::CrossingStateChecker(AFeatures* current)
 	return false;
 }
 
-bool AFiniteAutomaton::ApproachingSidewalkStateChecker(AFeatures* current)
+bool AFiniteAutomaton::ApproachingSidewalkStateChecker(AFeatures* current) const
 {
 	bool near_start_station = current->distance_from_start_station.X < this->constants.STATION_LENGTH;
 	near_start_station = near_start_station && current->distance_from_start_station.Y < this->constants.NEAR_STATION_THRESHOLD;
@@ -140,7 +162,7 @@ bool AFiniteAutomaton::MovingAlongSidewalkStateChecker(AFeatures* current)
 	return false;
 }
 
-bool AFiniteAutomaton::ApproachingStationStateChecker(AFeatures* current)
+bool AFiniteAutomaton::ApproachingStationStateChecker(AFeatures* current) const
 {
 	bool near_end_station_x = current->distance_from_end_station.X < this->constants.STATION_LENGTH;
 	bool near_end_station = near_end_station_x && current->distance_from_end_station.Y < this->constants.NEAR_STATION_THRESHOLD;
@@ -154,7 +176,7 @@ bool AFiniteAutomaton::ApproachingStationStateChecker(AFeatures* current)
 	return false;
 }
 
-bool AFiniteAutomaton::ArrivedStateChecker(AFeatures* current)
+/*bool AFiniteAutomaton::ArrivedStateChecker(AFeatures* current) const
 {
 	bool near_end_station_x = current->distance_from_end_station.X < this->constants.STATION_LENGTH;
 	bool near_end_station = near_end_station_x && current->distance_from_end_station.Y < this->constants.NEAR_STATION_THRESHOLD;
@@ -163,150 +185,148 @@ bool AFiniteAutomaton::ArrivedStateChecker(AFeatures* current)
 	if (!moving && near_end_station) return true;
 
 	return false;
-}
+}*/
 
-FString AFiniteAutomaton::HandleErrorState(AFeatures* current)
+int AFiniteAutomaton::HandleErrorState(AFeatures* current)
 {
-	if (StartStateChecker(current)) return "Start";
+	if (StartStateChecker(current)) return 0;
 
-	if (WaitingStateChecker(current)) return "Wait";
+	if (WaitingStateChecker(current)) return 2;
 
-	if (CrossingStateChecker(current)) return "Cross";
+	if (CrossingStateChecker(current)) return 4;
 
-	if (ApproachingSidewalkStateChecker(current)) return "Approach Sidewalk";
+	if (ApproachingSidewalkStateChecker(current)) return 1;
 
-	if (MovingAlongSidewalkStateChecker(current)) return "Move Along Sidewalk";
+	if (MovingAlongSidewalkStateChecker(current)) return 3;
 
-	if (ApproachingStationStateChecker(current)) return "Approach Target Station";
+	if (ApproachingStationStateChecker(current)) return 5;
 
-	if (ArrivedStateChecker(current)) return "Arrived";
-
-	return "Error";
+	return -1;
 }
 
-FString AFiniteAutomaton::HandleStartState(AFeatures* current)
+int AFiniteAutomaton::HandleAtStationState(AFeatures* current)
 {
 	// Transition to Approaching Sidewalk State
-	if (current->is_user_moving && (current->on_sidewalk || current->facing_sidewalk)) return "Approach Sidewalk";
+	if (current->is_user_moving && (current->on_sidewalk || current->facing_sidewalk)) return 3;
 
 	// Transition to Waiting State
-	if (!current->is_user_moving && current->intent_to_cross) return "Wait";
+	if (!current->is_user_moving && current->intent_to_cross) return 2;
 
-	return "Start";
+	return 0;
 }
 
-FString AFiniteAutomaton::HandleApproachSidewalkState(AFeatures* current)
+int AFiniteAutomaton::HandleApproachSidewalkState(AFeatures* current)
 {
 	// Transition to Cross
-	if (current->is_user_moving && current->facing_road) return "Cross";
+	if (current->is_user_moving && current->facing_road) return 4;
 
 	// Transition to Wait
-	if (!current->is_user_moving && current->intent_to_cross) return "Wait";
+	if (!current->is_user_moving && current->intent_to_cross) return 2;
 
 	// Transition to Move Along Sidewalk
-	if (current->is_user_moving && current->facing_sidewalk) return "Move Along Sidewalk";
+	if (current->is_user_moving && current->facing_sidewalk) return 3;
 
-	return "Approach Sidewalk";
+	return 1;
 }
 
-FString AFiniteAutomaton::HandleWaitState(AFeatures* current)
+int AFiniteAutomaton::HandleWaitState(AFeatures* current) const
 {
 
 	// Transition to Cross (TODO: Facing road may cause problems here)
 	bool moving_y = abs(current->user_velocity.Y) > this->constants.WALK_WAIT_THRESHOLD;
-	if (moving_y && current->on_road /*&& current->facing_road*/) return "Cross";
+	if (moving_y && current->on_road /*&& current->facing_road*/) return 4;
 
 	// Transition to Approach Sidewalk (TODO: Instead of on_sidewalk, some measure of near station may be better)
-	if (moving_y && current->on_sidewalk) return "Approach Sidewalk";
+	if (moving_y && current->on_sidewalk) return 1;
 
 	// Transition to Move Along Sidewalk
 	bool moving_x = abs(current->user_velocity.X) > this->constants.WALK_WAIT_THRESHOLD;
-	if (moving_x && (current->facing_sidewalk || current->on_sidewalk)) return "Move Along Sidewalk";
+	if (moving_x && (current->facing_sidewalk || current->on_sidewalk)) return 3;
 
-	return "Wait";
+	return 2;
 }
 
-FString AFiniteAutomaton::HandleMovingAlongSidewalkState(AFeatures* current)
+int AFiniteAutomaton::HandleMovingAlongSidewalkState(AFeatures* current) const
 {
 	// Transition to Cross
 	bool moving_y = abs(current->user_velocity.Y) > this->constants.WALK_WAIT_THRESHOLD;
-	if (moving_y && current->facing_road) return "Cross";
+	if (moving_y && current->facing_road) return 4;
 
 	// Transition to Wait
-	if (!current->is_user_moving && current->intent_to_cross) return "Wait";
+	if (!current->is_user_moving && current->intent_to_cross) return 2;
 
 	// Transition to Approach Target State
 	bool near_end_station_x = current->distance_from_end_station.X < this->constants.STATION_LENGTH;
 	bool near_end_station = near_end_station_x && current->distance_from_end_station.Y < this->constants.NEAR_STATION_THRESHOLD;
-	if (current->is_user_moving && !current->facing_road && near_end_station) return "Approach Target Station";
+	if (current->is_user_moving && !current->facing_road && near_end_station) return 5;
 
-	return "Move Along Sidewalk";
+	return 3;
 }
 
-FString AFiniteAutomaton::HandleCrossState(AFeatures* current)
+int AFiniteAutomaton::HandleCrossState(AFeatures* current) const
 {
 	// Transition to Move Along Sidewalk
 	bool moving_x = abs(current->user_velocity.X) > this->constants.WALK_WAIT_THRESHOLD;
-	if (current->on_sidewalk && moving_x) return "Move Along Sidewalk";
+	if (current->on_sidewalk && moving_x) return 3;
 
 	// Transition to Approach Target Station
 	bool near_end_station_x = current->distance_from_end_station.X < this->constants.STATION_LENGTH;
 	bool near_end_station = near_end_station_x && current->distance_from_end_station.Y < this->constants.NEAR_STATION_THRESHOLD;
-	if (current->is_user_moving && !current->facing_road && near_end_station) return "Approach Target Station";
+	if (current->is_user_moving && !current->facing_road && near_end_station) return 5;
 
 	// Transition to Wait
-	if (!current->is_user_moving && current->looking_at_agv && current->on_road) return "Wait";
+	if (!current->is_user_moving && current->looking_at_agv && current->on_road) return 2;
 
 	// Transition to Arrived
-	if (!current->is_user_moving && !current->facing_road && near_end_station) return "Arrived";
+	if (!current->is_user_moving && !current->facing_road && near_end_station) return 6;
 
-	return "Cross";
+	return 2;
 }
 
-FString AFiniteAutomaton::HandleApproachStationState(AFeatures* current)
+int AFiniteAutomaton::HandleApproachStationState(AFeatures* current)
 {
 	// Transition to Arrived
-	if (!current->is_user_moving) return "Arrived";
+	if (!current->is_user_moving) return 6;
 
-	return "Approach Target Station";
+	return 5;
 }
 
-FString AFiniteAutomaton::HandleArrivedState(AFeatures* current)
+/*int AFiniteAutomaton::HandleArrivedState(AFeatures* current)
 {
 	return "Arrived";
-}
+}*/
 
-FString AFiniteAutomaton::ConstraintChecking(FString current_state, AFeatures* current)
+int AFiniteAutomaton::ConstraintChecking(int current_state_id, AFeatures* current)
 {
 	bool error;
-	if (current_state.Compare("Start") == 0)
+	if (current_state_id == 0)
 	{
 		error = !StartStateChecker(current);
 	}
 	// If the current state is Approach Sidewalk, handle it
-	else if (current_state.Compare("Approach Sidewalk") == 0) {
+	else if (current_state_id == 1) {
 		error = !ApproachingSidewalkStateChecker(current);
 	}
 	// If the current state is Wait, handle it
-	else if (current_state.Compare("Wait") == 0) {
+	else if (current_state_id == 2) {
 		error = !WaitingStateChecker(current);
 	}
 	// If the current state is Move Along Sidewalk, handle it
-	else if (current_state.Compare("Move Along Sidewalk") == 0) {
+	else if (current_state_id == 3) {
 		error = !MovingAlongSidewalkStateChecker(current);
 	}
 	// If the current state is Cross, handle it
-	else if (current_state.Compare("Cross") == 0) {
+	else if (current_state_id == 4) {
 		error = !CrossingStateChecker(current);
 	}
 	// If the current state is Approach Target Station, handle it
-	else if (current_state.Compare("Approach Target Station") == 0) {
+	else if (current_state_id == 5) {
 		error = !ApproachingStationStateChecker(current);
 	}
 	// if the current state is Arrived, handle it (this does not do anything, just here to maintain consistency)
-	else if (current_state.Compare("Arrived") == 0) {
+    /*else if (current_state.Compare("Arrived") == 0) {
 		error = !ArrivedStateChecker(current);
-	}
+	}*/
 	else { // Error state
 		error = true;
 	}
@@ -317,10 +337,10 @@ FString AFiniteAutomaton::ConstraintChecking(FString current_state, AFeatures* c
 	for (bool err : this->error_flags) {
 		// If any non-error is encountered, return the current state as is
 		if (!err) {
-			return current_state;
+			return current_state_id;
 		}
 	}
 
 	// If all three values are true, return the error state
-	return "Error";
+	return -1;
 }

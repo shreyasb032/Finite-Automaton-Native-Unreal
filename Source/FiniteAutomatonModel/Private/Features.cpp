@@ -40,7 +40,7 @@ void AFeatures::SetDefaults()
 	this->agv_speed = FVector2D(1.0, 1.0);
 	this->user_velocity = FVector2D(0.0, 0.0);
 	this->is_user_moving = false;
-	//this->wait_time = 0.;
+	this->wait_time = 0.f;
 	this->intent_to_cross = false;
 	this->gazing_station = -1;
 	this->gazing_station_cos = -1.0;
@@ -91,10 +91,13 @@ void AFeatures::GenerateRemainingFeatures(AFeatures* previous)
 	this->is_user_moving = (user_velocity.Length() > this->constants.WALK_WAIT_THRESHOLD);
 
 	// TODO: Change this when needed. We are currently not using the wait time feature for anything
-	/*if (this->user_velocity.Length() < this->constants.WALK_WAIT_THRESHOLD)
+	if (this->user_velocity.Length() < this->constants.WALK_WAIT_THRESHOLD)
 	{
 		this->wait_time = previous->wait_time + 1.0 / this->constants.FRAMERATE;
-	}*/
+	}
+	else {
+		this->wait_time = 0.f;
+	}
 
 	this->on_sidewalk = WithinSidewalkBounds(&this->user_location, this->constants.MARGIN_NEAR_SIDEWALKS);
 	this->on_road = WithinRoadBounds(&this->user_location, this->constants.MARGIN_NEAR_SIDEWALKS / 2.0);
@@ -198,7 +201,7 @@ void AFeatures::StartAndEndStationsComputations()
 	}
 }
 
-bool AFeatures::LookingAtAGV()
+bool AFeatures::LookingAtAGV() const
 {
 	FVector2D user_to_agv = this->agv_location - this->user_location;
 	FVector2D normalized = user_to_agv.GetSafeNormal();
