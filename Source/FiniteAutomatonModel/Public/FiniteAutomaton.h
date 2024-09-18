@@ -50,17 +50,15 @@ private:
 	bool ApproachingSidewalkStateChecker(AFeatures* current) const;
 	bool MovingAlongSidewalkStateChecker(AFeatures* current);
 	bool ApproachingStationStateChecker(AFeatures* current) const;
-	//bool ArrivedStateChecker(AFeatures* current) const;
 
 	// Transition models
 	int HandleErrorState(AFeatures* current);
-	int HandleAtStationState(AFeatures* current);
-	int HandleApproachSidewalkState(AFeatures* current);
+	int HandleAtStationState(AFeatures* current) const;
+	int HandleApproachSidewalkState(AFeatures* current) const;
 	int HandleWaitState(AFeatures* current) const;
 	int HandleMovingAlongSidewalkState(AFeatures* current) const;
 	int HandleCrossState(AFeatures* current) const;
-	int HandleApproachStationState(AFeatures* current);
-	//FString HandleArrivedState(AFeatures* current);
-
-	int ConstraintChecking(int current_state_id, AFeatures* current);
+	int HandleApproachStationState(AFeatures* current) const;
+	
+	int ConstraintChecking(AFeatures* current);
 };

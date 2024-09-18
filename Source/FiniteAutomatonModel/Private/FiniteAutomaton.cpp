@@ -84,7 +84,7 @@ FString AFiniteAutomaton::GetState(AFeatures* current)
 
 	// Error handling. For the new current state, check if the constraints are satisfied. If not, add to the error pile. 
 	// If the error pile is full, change the current state to Error
-	this->current_state_id = ConstraintChecking(this->current_state_id, current);
+	this->current_state_id = ConstraintChecking(current);
 	this->current_state_name = this->idx_to_name[this->current_state_id];
 
 	if (this->current_state_id != -1) {
@@ -176,35 +176,56 @@ bool AFiniteAutomaton::ApproachingStationStateChecker(AFeatures* current) const
 	return false;
 }
 
-/*bool AFiniteAutomaton::ArrivedStateChecker(AFeatures* current) const
-{
-	bool near_end_station_x = current->distance_from_end_station.X < this->constants.STATION_LENGTH;
-	bool near_end_station = near_end_station_x && current->distance_from_end_station.Y < this->constants.NEAR_STATION_THRESHOLD;
-	bool moving = current->is_user_moving;
-
-	if (!moving && near_end_station) return true;
-
-	return false;
-}*/
 
 int AFiniteAutomaton::HandleErrorState(AFeatures* current)
 {
-	if (StartStateChecker(current)) return 0;
+	// If we had an error state previously, then go through a fixed order
+	// This should only happen at the first time step
+	if (prev_state_id == -1) {
+		if (AtStationStateChecker(current)) return 0;
 
-	if (WaitingStateChecker(current)) return 2;
+		if (WaitingStateChecker(current)) return 2;
 
-	if (CrossingStateChecker(current)) return 4;
+		if (CrossingStateChecker(current)) return 4;
 
-	if (ApproachingSidewalkStateChecker(current)) return 1;
+		if (ApproachingSidewalkStateChecker(current)) return 1;
 
-	if (MovingAlongSidewalkStateChecker(current)) return 3;
+		if (MovingAlongSidewalkStateChecker(current)) return 3;
 
-	if (ApproachingStationStateChecker(current)) return 5;
+		if (ApproachingStationStateChecker(current)) return 5;
+
+		return -1;
+	}
+	// Otherwise, we have a valid previous state. We need to do constraint checking in the order
+	// of decreasing probabilities of transitions
+	// STEP 1: Select the correct row of MLE
+	TArray<float> transition_probs = this->MLE[this->prev_state_id];
+
+	// STEP 2: Create a boolean array with all constraint checks
+	TArray<TTuple<int, bool, float>> constraint_checks;
+	constraint_checks.Add(MakeTuple(0, AtStationStateChecker(current), transition_probs[0]));
+	constraint_checks.Add(MakeTuple(1, ApproachingSidewalkStateChecker(current), transition_probs[1]));
+	constraint_checks.Add(MakeTuple(2, WaitingStateChecker(current), transition_probs[2]));
+	constraint_checks.Add(MakeTuple(3, MovingAlongSidewalkStateChecker(current), transition_probs[3]));
+	constraint_checks.Add(MakeTuple(4, CrossingStateChecker(current), transition_probs[4]));
+	constraint_checks.Add(MakeTuple(5, ApproachingStationStateChecker(current), transition_probs[5]));
+
+	// STEP 3: Sort the array according to the probabilities
+	constraint_checks.Sort([](const TTuple<int, bool, float> A, const TTuple<int, bool, float> B) {
+		return  A.Get<2>() > B.Get<2>();
+		});
+
+	// STEP 4: Go through the sorted array and return the first state whose constraints are satisfied
+	for (TTuple<int, bool, float> constraint_check : constraint_checks) {
+		if (constraint_check.Get<1>()) {
+			return constraint_check.Get<0>();
+		}
+	}
 
 	return -1;
 }
 
-int AFiniteAutomaton::HandleAtStationState(AFeatures* current)
+int AFiniteAutomaton::HandleAtStationState(AFeatures* current) const
 {
 	// Transition to Approaching Sidewalk State
 	if (current->is_user_moving && (current->on_sidewalk || current->facing_sidewalk)) return 3;
@@ -215,7 +236,7 @@ int AFiniteAutomaton::HandleAtStationState(AFeatures* current)
 	return 0;
 }
 
-int AFiniteAutomaton::HandleApproachSidewalkState(AFeatures* current)
+int AFiniteAutomaton::HandleApproachSidewalkState(AFeatures* current) const
 {
 	// Transition to Cross
 	if (current->is_user_moving && current->facing_road) return 4;
@@ -283,7 +304,7 @@ int AFiniteAutomaton::HandleCrossState(AFeatures* current) const
 	return 2;
 }
 
-int AFiniteAutomaton::HandleApproachStationState(AFeatures* current)
+int AFiniteAutomaton::HandleApproachStationState(AFeatures* current) const
 {
 	// Transition to Arrived
 	if (!current->is_user_moving) return 6;
@@ -291,42 +312,33 @@ int AFiniteAutomaton::HandleApproachStationState(AFeatures* current)
 	return 5;
 }
 
-/*int AFiniteAutomaton::HandleArrivedState(AFeatures* current)
-{
-	return "Arrived";
-}*/
-
-int AFiniteAutomaton::ConstraintChecking(int current_state_id, AFeatures* current)
+int AFiniteAutomaton::ConstraintChecking(AFeatures* current)
 {
 	bool error;
-	if (current_state_id == 0)
+	if (this->current_state_id == 0)
 	{
-		error = !StartStateChecker(current);
+		error = !AtStationStateChecker(current);
 	}
 	// If the current state is Approach Sidewalk, handle it
-	else if (current_state_id == 1) {
+	else if (this->current_state_id == 1) {
 		error = !ApproachingSidewalkStateChecker(current);
 	}
 	// If the current state is Wait, handle it
-	else if (current_state_id == 2) {
+	else if (this->current_state_id == 2) {
 		error = !WaitingStateChecker(current);
 	}
 	// If the current state is Move Along Sidewalk, handle it
-	else if (current_state_id == 3) {
+	else if (this->current_state_id == 3) {
 		error = !MovingAlongSidewalkStateChecker(current);
 	}
 	// If the current state is Cross, handle it
-	else if (current_state_id == 4) {
+	else if (this->current_state_id == 4) {
 		error = !CrossingStateChecker(current);
 	}
 	// If the current state is Approach Target Station, handle it
-	else if (current_state_id == 5) {
+	else if (this->current_state_id == 5) {
 		error = !ApproachingStationStateChecker(current);
 	}
-	// if the current state is Arrived, handle it (this does not do anything, just here to maintain consistency)
-    /*else if (current_state.Compare("Arrived") == 0) {
-		error = !ArrivedStateChecker(current);
-	}*/
 	else { // Error state
 		error = true;
 	}
@@ -337,7 +349,7 @@ int AFiniteAutomaton::ConstraintChecking(int current_state_id, AFeatures* curren
 	for (bool err : this->error_flags) {
 		// If any non-error is encountered, return the current state as is
 		if (!err) {
-			return current_state_id;
+			return this->current_state_id;
 		}
 	}
 
