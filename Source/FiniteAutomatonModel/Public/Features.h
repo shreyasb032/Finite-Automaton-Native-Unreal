@@ -42,7 +42,7 @@ public:
 
 	UPROPERTY(BlueprintReadOnly)
 	bool is_user_moving;
-	//float wait_time;
+	float wait_time;
 	bool intent_to_cross;
 	int gazing_station;
 	float gazing_station_cos;
@@ -90,13 +90,13 @@ public:
 private:
 	void SetDefaults();
 	UObject* GameInstance;
-	bool WithinSidewalkBounds(FVector2D* location, float error_range);
-	bool WithinRoadBounds(FVector2D* location, float error_range);
+	bool WithinSidewalkBounds(FVector2D* location, float error_range) const;
+	bool WithinRoadBounds(FVector2D* location, float error_range) const;
 	void ClosestStationComputations();
 	void StartAndEndStationsComputations();
-	bool LookingAtAGV();
-	bool FacingSidewalk();
-	bool FacingRoad();
+	bool LookingAtAGV() const;
+	bool FacingSidewalk() const;
+	bool FacingRoad() const;
 	void GazingStationComputations();
 	bool IntentToCrossComputations();
 

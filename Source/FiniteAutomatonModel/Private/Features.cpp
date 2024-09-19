@@ -40,7 +40,7 @@ void AFeatures::SetDefaults()
 	this->agv_speed = FVector2D(1.0, 1.0);
 	this->user_velocity = FVector2D(0.0, 0.0);
 	this->is_user_moving = false;
-	//this->wait_time = 0.;
+	this->wait_time = 0.f;
 	this->intent_to_cross = false;
 	this->gazing_station = -1;
 	this->gazing_station_cos = -1.0;
@@ -53,6 +53,7 @@ void AFeatures::SetDefaults()
 
 	// Station info
 	this->closest_station = 0;
+	this->gazing_station = 0;
 	this->distance_to_closest_station = FVector2D(0.0, 0.0);
 	this->start_station_id = 0;
 	this->end_station_id = 1;
@@ -91,10 +92,13 @@ void AFeatures::GenerateRemainingFeatures(AFeatures* previous)
 	this->is_user_moving = (user_velocity.Length() > this->constants.WALK_WAIT_THRESHOLD);
 
 	// TODO: Change this when needed. We are currently not using the wait time feature for anything
-	/*if (this->user_velocity.Length() < this->constants.WALK_WAIT_THRESHOLD)
+	if (this->user_velocity.Length() < this->constants.WALK_WAIT_THRESHOLD)
 	{
 		this->wait_time = previous->wait_time + 1.0 / this->constants.FRAMERATE;
-	}*/
+	}
+	else {
+		this->wait_time = 0.f;
+	}
 
 	this->on_sidewalk = WithinSidewalkBounds(&this->user_location, this->constants.MARGIN_NEAR_SIDEWALKS);
 	this->on_road = WithinRoadBounds(&this->user_location, this->constants.MARGIN_NEAR_SIDEWALKS / 2.0);
@@ -122,7 +126,7 @@ void AFeatures::GenerateRemainingFeatures(AFeatures* previous)
 
 }
 
-bool AFeatures::WithinRoadBounds(FVector2D* location, float error_range)
+bool AFeatures::WithinRoadBounds(FVector2D* location, float error_range) const
 {
 	if (location->Y < this->constants.SIDEWALK_1["Low"] - error_range &&
 		location->Y > this->constants.SIDEWALK_2["High"] + error_range)
@@ -132,7 +136,7 @@ bool AFeatures::WithinRoadBounds(FVector2D* location, float error_range)
 	return false;
 }
 
-bool AFeatures::WithinSidewalkBounds(FVector2D* location, float error_range)
+bool AFeatures::WithinSidewalkBounds(FVector2D* location, float error_range) const
 {	
 	// If within the top sidewalk
 	if (location->Y < this->constants.SIDEWALK_1["High"] + error_range && 
@@ -198,7 +202,7 @@ void AFeatures::StartAndEndStationsComputations()
 	}
 }
 
-bool AFeatures::LookingAtAGV()
+bool AFeatures::LookingAtAGV() const
 {
 	FVector2D user_to_agv = this->agv_location - this->user_location;
 	FVector2D normalized = user_to_agv.GetSafeNormal();
@@ -209,7 +213,7 @@ bool AFeatures::LookingAtAGV()
 	return false;
 }
 
-bool AFeatures::FacingSidewalk()
+bool AFeatures::FacingSidewalk() const
 {
 	// If looking in either the positive or negative x direction
 	if (abs(this->gaze_vector_2d.X) > this->constants.GAZING_ANGLE_THRESHOLD_COS)
@@ -220,7 +224,7 @@ bool AFeatures::FacingSidewalk()
 	return false;
 }
 
-bool AFeatures::FacingRoad()
+bool AFeatures::FacingRoad() const
 {
 	float road_midpoint = 0.5 * (this->constants.SIDEWALK_1["Low"] + this->constants.SIDEWALK_2["High"]);
 	
