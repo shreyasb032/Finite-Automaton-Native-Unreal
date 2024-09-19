@@ -133,25 +133,26 @@ bool AFiniteAutomaton::CrossingStateChecker(AFeatures* current)
 	bool facing_road = current->facing_road;
 	bool looking_at_agv = current->looking_at_agv;
 
-	//if (moving && on_road && (facing_road || looking_at_agv)) return true;
-	if (moving && on_road) return true;
+	if (moving && on_road && (facing_road || looking_at_agv)) return true;
+	//if (moving && on_road) return true;
 
 	return false;
 }
 
 bool AFiniteAutomaton::ApproachingSidewalkStateChecker(AFeatures* current) const
 {
-	bool near_start_station = current->distance_from_start_station.X < this->constants.STATION_LENGTH;
-	near_start_station = near_start_station && current->distance_from_start_station.Y < this->constants.NEAR_STATION_THRESHOLD;
-	bool facing_start_station = current->facing_start_station;
+	//bool near_start_station = current->distance_from_start_station.X < this->constants.STATION_LENGTH;
+	//near_start_station = near_start_station && current->distance_from_start_station.Y < this->constants.NEAR_STATION_THRESHOLD;
+	bool near_start_station = current->distance_to_closest_station.Y <= this->constants.NEAR_STATION_THRESHOLD;
+	//bool facing_start_station = current->facing_start_station;
 	bool moving = current->is_user_moving;
 
-	if (near_start_station && !facing_start_station && moving) return true;
+	if (near_start_station /* && !facing_start_station*/ && moving && !current->on_road) return true;
 
 	return false;
 }
 
-bool AFiniteAutomaton::MovingAlongSidewalkStateChecker(AFeatures* current)
+bool AFiniteAutomaton::MovingAlongSidewalkStateChecker(AFeatures* current) const
 {
 	bool moving = current->is_user_moving;
 	bool on_sidewalk = current->on_sidewalk;
@@ -164,14 +165,15 @@ bool AFiniteAutomaton::MovingAlongSidewalkStateChecker(AFeatures* current)
 
 bool AFiniteAutomaton::ApproachingStationStateChecker(AFeatures* current) const
 {
-	bool near_end_station_x = current->distance_from_end_station.X < this->constants.STATION_LENGTH;
-	bool near_end_station = near_end_station_x && current->distance_from_end_station.Y < this->constants.NEAR_STATION_THRESHOLD;
+	//bool near_end_station_x = current->distance_from_end_station.X < this->constants.STATION_LENGTH;
+	//bool near_end_station = near_end_station_x && current->distance_from_end_station.Y < this->constants.NEAR_STATION_THRESHOLD;
 	//bool at_end_station = near_end_station_x && current->distance_from_end_station.Y < this->constants.AT_STATION_THRESHOLD;
 
-	bool moving = current->is_user_moving;
-	bool facing_end_station = current->facing_end_station;
+	bool moving = current->user_velocity.Length() > this->constants.WALK_WAIT_THRESHOLD * 0.2;
+	bool facing_end_station = current->closest_station == current->gazing_station;
+	bool near_end_station = current->distance_to_closest_station.Length() < this->constants.AT_STATION_THRESHOLD * 2;
 
-	if (moving && near_end_station && facing_end_station) return true;
+	if (!current->on_road && moving && near_end_station && facing_end_station) return true;
 
 	return false;
 }
@@ -228,10 +230,10 @@ int AFiniteAutomaton::HandleErrorState(AFeatures* current)
 int AFiniteAutomaton::HandleAtStationState(AFeatures* current) const
 {
 	// Transition to Approaching Sidewalk State
-	if (current->is_user_moving && (current->on_sidewalk || current->facing_sidewalk)) return 3;
+	if (current->is_user_moving && (current->on_sidewalk || current->facing_sidewalk)) return 1;
 
 	// Transition to Waiting State
-	if (!current->is_user_moving && current->intent_to_cross) return 2;
+	if (!current->is_user_moving && current->intent_to_cross /* && current->possible_interaction*/) return 2;
 
 	return 0;
 }
@@ -239,13 +241,15 @@ int AFiniteAutomaton::HandleAtStationState(AFeatures* current) const
 int AFiniteAutomaton::HandleApproachSidewalkState(AFeatures* current) const
 {
 	// Transition to Cross
-	if (current->is_user_moving && current->facing_road) return 4;
+	if (current->is_user_moving && current->facing_road && current->on_road) return 4;
 
 	// Transition to Wait
-	if (!current->is_user_moving && current->intent_to_cross) return 2;
+	if (!current->is_user_moving && current->intent_to_cross /*&& current->possible_interaction*/) return 2;
 
 	// Transition to Move Along Sidewalk
-	if (current->is_user_moving && current->facing_sidewalk) return 3;
+	FVector2D user_speed = current->user_velocity.GetAbs();
+	bool moving_along_x = user_speed.X > 1.5 * user_speed.Y;
+	if (moving_along_x || (current->is_user_moving && current->facing_sidewalk)) return 3;
 
 	return 1;
 }
@@ -261,7 +265,7 @@ int AFiniteAutomaton::HandleWaitState(AFeatures* current) const
 	if (moving_y && current->on_sidewalk) return 1;
 
 	// Transition to Move Along Sidewalk
-	bool moving_x = abs(current->user_velocity.X) > this->constants.WALK_WAIT_THRESHOLD;
+	bool moving_x = abs(current->user_velocity.X) > 0.8 * this->constants.WALK_WAIT_THRESHOLD;
 	if (moving_x && (current->facing_sidewalk || current->on_sidewalk)) return 3;
 
 	return 2;
@@ -271,15 +275,23 @@ int AFiniteAutomaton::HandleMovingAlongSidewalkState(AFeatures* current) const
 {
 	// Transition to Cross
 	bool moving_y = abs(current->user_velocity.Y) > this->constants.WALK_WAIT_THRESHOLD;
-	if (moving_y && current->facing_road) return 4;
+	bool condition1 = moving_y && current->facing_road;
+	bool condition2 = abs(current->user_velocity.Y) > 1.5 * abs(current->user_velocity.X);
+	bool condition3 = current->intent_to_cross || current->on_road;
+	if ((condition1 || condition2) && condition3) return 4;
 
 	// Transition to Wait
-	if (!current->is_user_moving && current->intent_to_cross) return 2;
+	if (!current->is_user_moving && current->intent_to_cross /*&& current->possible_interaction*/) return 2;
 
-	// Transition to Approach Target State
-	bool near_end_station_x = current->distance_from_end_station.X < this->constants.STATION_LENGTH;
+	// Transition to Approaching Station State
+	/*bool near_end_station_x = current->distance_from_end_station.X < this->constants.STATION_LENGTH;
 	bool near_end_station = near_end_station_x && current->distance_from_end_station.Y < this->constants.NEAR_STATION_THRESHOLD;
-	if (current->is_user_moving && !current->facing_road && near_end_station) return 5;
+	if (current->is_user_moving && !current->facing_road && near_end_station) return 5;*/
+	bool condition1 = current->user_velocity.Length() < this->constants.WALK_WAIT_THRESHOLD;
+	condition1 = condition1 || (current->closest_station == current->gazing_station);
+	bool condition2 = !current->facing_road;
+	bool condition3 = current->distance_to_closest_station.Length() < this->constants.AT_STATION_THRESHOLD * 2;
+	if (condition1 && condition2 && condition3) return 5;
 
 	return 3;
 }
@@ -291,23 +303,25 @@ int AFiniteAutomaton::HandleCrossState(AFeatures* current) const
 	if (current->on_sidewalk && moving_x) return 3;
 
 	// Transition to Approach Target Station
-	bool near_end_station_x = current->distance_from_end_station.X < this->constants.STATION_LENGTH;
-	bool near_end_station = near_end_station_x && current->distance_from_end_station.Y < this->constants.NEAR_STATION_THRESHOLD;
-	if (current->is_user_moving && !current->facing_road && near_end_station) return 5;
+	//bool near_end_station_x = current->distance_from_end_station.X < this->constants.STATION_LENGTH;
+	//bool near_end_station = near_end_station_x && current->distance_from_end_station.Y < this->constants.NEAR_STATION_THRESHOLD;
+	bool near_end_station = (current->closest_station == current->gazing_station);
+	if (current->is_user_moving && !current->on_road && near_end_station) return 5;
 
 	// Transition to Wait
-	if (!current->is_user_moving && current->looking_at_agv && current->on_road) return 2;
+	if (!current->is_user_moving && current->looking_at_agv && current->on_road /*&& current->possible_interaction*/) return 2;
 
-	// Transition to Arrived
-	if (!current->is_user_moving && !current->facing_road && near_end_station) return 6;
+	// Transition to At Station
+	bool near_end_station = current->distance_to_closest_station.Length() <= this->constants.AT_STATION_THRESHOLD;
+	if (!current->is_user_moving && !current->facing_road && near_end_station) return 0;
 
 	return 2;
 }
 
 int AFiniteAutomaton::HandleApproachStationState(AFeatures* current) const
 {
-	// Transition to Arrived
-	if (!current->is_user_moving) return 6;
+	// Transition to At Station
+	if (!current->is_user_moving) return 0;
 
 	return 5;
 }

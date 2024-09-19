@@ -18,8 +18,8 @@ Constants::Constants()
 	this->STATIONS.Add(7, FVector2D(13252, 8683));
 	this->STATIONS.Add(8, FVector2D(13319, 5796));
 
-	this->AT_STATION_THRESHOLD = 250.;
-	this->NEAR_STATION_THRESHOLD = 350.;
+	this->AT_STATION_THRESHOLD = 300.;
+	this->NEAR_STATION_THRESHOLD = 400.;
 	this->MARGIN_NEAR_SIDEWALKS = 100.;
 	this->STATION_LENGTH = 500.;
 

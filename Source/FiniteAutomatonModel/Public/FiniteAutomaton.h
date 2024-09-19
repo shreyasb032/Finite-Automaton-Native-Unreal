@@ -48,7 +48,7 @@ private:
 	bool WaitingStateChecker(AFeatures* current);
 	bool CrossingStateChecker(AFeatures* current);
 	bool ApproachingSidewalkStateChecker(AFeatures* current) const;
-	bool MovingAlongSidewalkStateChecker(AFeatures* current);
+	bool MovingAlongSidewalkStateChecker(AFeatures* current) const;
 	bool ApproachingStationStateChecker(AFeatures* current) const;
 
 	// Transition models

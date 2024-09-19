@@ -90,13 +90,13 @@ public:
 private:
 	void SetDefaults();
 	UObject* GameInstance;
-	bool WithinSidewalkBounds(FVector2D* location, float error_range);
-	bool WithinRoadBounds(FVector2D* location, float error_range);
+	bool WithinSidewalkBounds(FVector2D* location, float error_range) const;
+	bool WithinRoadBounds(FVector2D* location, float error_range) const;
 	void ClosestStationComputations();
 	void StartAndEndStationsComputations();
 	bool LookingAtAGV() const;
-	bool FacingSidewalk();
-	bool FacingRoad();
+	bool FacingSidewalk() const;
+	bool FacingRoad() const;
 	void GazingStationComputations();
 	bool IntentToCrossComputations();
 
