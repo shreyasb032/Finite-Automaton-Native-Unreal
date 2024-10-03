@@ -78,8 +78,8 @@ bool ADataReader::ReadData()
 	this->header += "agv_user_distance_x, agv_user_distance_y, agv_speed_x, agv_speed_y, user_velocity_x, user_velocity_y, is_user_moving, ";
 	this->header += "intent_to_cross, gazing_station, gazing_station_cos, facing_sidewalk, facing_road, on_sidewalk, on_road, ";
 	this->header += "closest_station, distance_to_closest_station_x, distance_to_closest_station_y, looking_at_agv, ";
-	this->header += "start_station_id, end_station_id, distance_from_start_station_x, distance_from_start_station_y, ";
-	this->header += "distance_from_end_station_x, distance_from_end_station_y, facing_start_station, facing_end_station";
+	/*this->header += "start_station_id, end_station_id, distance_from_start_station_x, distance_from_start_station_y, ";
+	this->header += "distance_from_end_station_x, distance_from_end_station_y, facing_start_station, facing_end_station";*/
 
 	return read;
 }
@@ -136,7 +136,7 @@ void ADataReader::GetOneLine(AFeatures* features, int line_num = -1)
 
 	float yaw = 45.f;
 	features->SetRawFeatures(user_x, user_y, agv_x, agv_y, gaze_x, gaze_y, gaze_z, yaw);
-	features->SetStationInfo(start_station, end_station);
+	//features->SetStationInfo(start_station, end_station);
 }
 
 void ADataReader::WriteOneLine(AFeatures* features, FString out_filename, bool print_to_screen)
@@ -207,7 +207,7 @@ void ADataReader::WriteOneLine(AFeatures* features, FString out_filename, bool p
 
 	data_string += features->looking_at_agv ? "TRUE," : "FALSE,";
 
-	data_string += FString::FromInt(features->start_station_id) + ",";
+	/*data_string += FString::FromInt(features->start_station_id) + ",";
 	data_string += FString::FromInt(features->end_station_id) + ",";
 
 	data_string += FString::SanitizeFloat(features->distance_from_start_station.X) + ",";
@@ -216,7 +216,7 @@ void ADataReader::WriteOneLine(AFeatures* features, FString out_filename, bool p
 	data_string += FString::SanitizeFloat(features->distance_from_end_station.Y) + ",";
 
 	data_string += features->facing_start_station ? "TRUE," : "FALSE,";
-	data_string += features->facing_end_station ? "TRUE" : "FALSE";
+	data_string += features->facing_end_station ? "TRUE" : "FALSE";*/
 
 	data_string += LINE_TERMINATOR;
 	FFileHelper::SaveStringToFile(data_string, *save_file, FFileHelper::EEncodingOptions::AutoDetect, &IFileManager::Get(), EFileWrite::FILEWRITE_Append);

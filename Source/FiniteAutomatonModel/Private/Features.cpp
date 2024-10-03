@@ -44,7 +44,7 @@ void AFeatures::SetDefaults()
 	this->intent_to_cross = false;
 	this->gazing_station = -1;
 	this->gazing_station_cos = -1.0;
-	bool possible_interaction = false;
+	this->possible_interaction = false;
 	this->facing_sidewalk = false;
 	this->facing_road = false;
 	this->on_sidewalk = false;
@@ -192,7 +192,7 @@ void AFeatures::PossibleInteractionComputations()
 	{
 		FVector2D future_user_location = this->user_location + this->user_velocity * time_at_closest_point;
 		FVector2D future_agv_location = this->agv_location + this->agv_velocity * time_at_closest_point;
-		float distance = (future_user_location - future_agv_location).Length();
+		distance = (future_user_location - future_agv_location).Length();
 		if (distance < this->constants.COLLISION_THRESHOLD)
 		{
 			this->possible_interaction = true;
