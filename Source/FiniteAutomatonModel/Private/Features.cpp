@@ -40,11 +40,11 @@ void AFeatures::SetDefaults()
 	this->agv_speed = FVector2D(1.0, 1.0);
 	this->user_velocity = FVector2D(0.0, 0.0);
 	this->is_user_moving = false;
-	//this->wait_time = 0.;
+	this->wait_time = 0.f;
 	this->intent_to_cross = false;
 	this->gazing_station = -1;
 	this->gazing_station_cos = -1.0;
-	//bool possible_interaction;
+	this->possible_interaction = false;
 	this->facing_sidewalk = false;
 	this->facing_road = false;
 	this->on_sidewalk = false;
@@ -53,13 +53,18 @@ void AFeatures::SetDefaults()
 
 	// Station info
 	this->closest_station = 0;
+	this->gazing_station = 0;
 	this->distance_to_closest_station = FVector2D(0.0, 0.0);
-	this->start_station_id = 0;
+
+	this->begin_wait_flag = false;
+	this->agv_passed = false;
+
+	/*this->start_station_id = 0;
 	this->end_station_id = 1;
 	this->distance_from_start_station = FVector2D(0.0, 0.0);
 	this->distance_from_end_station = FVector2D(0.0, 0.0);
 	this->facing_start_station = true;
-	this->facing_end_station = false;
+	this->facing_end_station = false;*/
 
 	this->rolling_avg = 0.f;
 
@@ -79,33 +84,40 @@ void AFeatures::SetRawFeatures(float user_x, float user_y, float agv_x, float ag
 }
 
 
-void AFeatures::SetStationInfo(int start_station, int end_station)
+/*void AFeatures::SetStationInfo(int start_station, int end_station)
 {
 	this->start_station_id = start_station;
 	this->end_station_id = end_station;
-}
+}*/
 
 void AFeatures::GenerateRemainingFeatures(AFeatures* previous)
 {
 	this->agv_to_user_distance = (this->user_location - this->agv_location).GetAbs();
 	this->agv_speed = (this->agv_location - previous->agv_location).GetAbs() * this->constants.FRAMERATE;
+	this->agv_velocity = (this->agv_location - previous->agv_location) * this->constants.FRAMERATE;
 	this->user_velocity = (this->user_location - previous->user_location) * this->constants.FRAMERATE;
 	this->is_user_moving = (user_velocity.Length() > this->constants.WALK_WAIT_THRESHOLD);
 
-	// TODO: Change this when needed. We are currently not using the wait time feature for anything
-	/*if (this->user_velocity.Length() < this->constants.WALK_WAIT_THRESHOLD)
+	/*// TODO: Change this when needed. We are currently not using the wait time feature for anything
+	if (this->user_velocity.Length() < this->constants.WALK_WAIT_THRESHOLD)
 	{
 		this->wait_time = previous->wait_time + 1.0 / this->constants.FRAMERATE;
+	}
+	else {
+		this->wait_time = 0.f;
 	}*/
 
 	this->on_sidewalk = WithinSidewalkBounds(&this->user_location, this->constants.MARGIN_NEAR_SIDEWALKS);
 	this->on_road = WithinRoadBounds(&this->user_location, this->constants.MARGIN_NEAR_SIDEWALKS / 2.0);
-	
+
+	// Compute the wait time
+	this->WaitTimeComputations(previous);
+
 	// Closest station
 	this->ClosestStationComputations();
 
 	// Start and end station distance and facing computations
-	this->StartAndEndStationsComputations();
+	//this->StartAndEndStationsComputations();
 
 	// Looking at AGV
 	this->looking_at_agv = LookingAtAGV();
@@ -124,9 +136,9 @@ void AFeatures::GenerateRemainingFeatures(AFeatures* previous)
 
 }
 
-bool AFeatures::WithinRoadBounds(FVector2D* location, float error_range)
+bool AFeatures::WithinRoadBounds(FVector2D* location, float error_range) const
 {
-	if (location->Y < this->constants.SIDEWALK_1["Low"] - error_range ||
+	if (location->Y < this->constants.SIDEWALK_1["Low"] - error_range &&
 		location->Y > this->constants.SIDEWALK_2["High"] + error_range)
 	{
 		return true;
@@ -134,7 +146,7 @@ bool AFeatures::WithinRoadBounds(FVector2D* location, float error_range)
 	return false;
 }
 
-bool AFeatures::WithinSidewalkBounds(FVector2D* location, float error_range)
+bool AFeatures::WithinSidewalkBounds(FVector2D* location, float error_range) const
 {	
 	// If within the top sidewalk
 	if (location->Y < this->constants.SIDEWALK_1["High"] + error_range && 
@@ -151,6 +163,91 @@ bool AFeatures::WithinSidewalkBounds(FVector2D* location, float error_range)
 	}
 
 	return false;
+}
+
+void AFeatures::PossibleInteractionComputations()
+{
+	float distance = this->agv_to_user_distance.Length(); // The distance between the AGV and the participant
+	// If the distance between the participant and the AGV is lower than a threshold, set the possible interaction to be true and return
+	if (distance < this->constants.COLLISION_THRESHOLD) {
+		this->possible_interaction = true;
+		return;
+	}
+	// Compute the relative velocity between the participant and the AGV
+	FVector2D relative_velocity = this->user_velocity - this->agv_velocity;
+	float relative_speed = relative_velocity.Length();
+	
+	// If there is very little relative velocity between the participant and the AGV, there would be no interaction between them
+	if (relative_speed < this->constants.WALK_WAIT_THRESHOLD)
+	{
+		this->possible_interaction = false;
+		return;
+	}
+
+	// Compute the time at which the distance between the AGV and the participant will be minimum
+	// assuming that they continue at the same velocities
+	FVector2D agv_to_user_vector = this->user_location - this->agv_location;
+	float time_at_closest_point = -agv_to_user_vector.Dot(relative_velocity) / (relative_speed * relative_speed);
+	
+	// If this time is positive, the distance between the AGV and the participant is decreasing
+	if (time_at_closest_point > 0)
+	{
+		FVector2D future_user_location = this->user_location + this->user_velocity * time_at_closest_point;
+		FVector2D future_agv_location = this->agv_location + this->agv_velocity * time_at_closest_point;
+		distance = (future_user_location - future_agv_location).Length();
+		if (distance < this->constants.COLLISION_THRESHOLD)
+		{
+			this->possible_interaction = true;
+			return;
+		}
+	}
+	
+	// If all else fails
+	this->possible_interaction = false;
+	return;
+}
+
+void AFeatures::WaitTimeComputations(AFeatures* previous)
+{
+	// If the agv has already passed, set the wait time to 0 and return
+	this->agv_passed = previous->agv_passed;
+	if (this->agv_passed)
+	{
+		this->wait_time = 0.f;
+		return;
+	}
+
+	// Else, if the agv has not passed, do additional computations
+
+	// If the user was walking in the previous timestep
+	if (!previous->begin_wait_flag)
+	{
+		// If the user is stopped on the sidewalk
+		if (!this->is_user_moving && this->on_sidewalk)
+		{
+			this->begin_wait_flag = true;
+			this->wait_time = previous->wait_time + 1.f / this->constants.FRAMERATE;
+		}
+		else 
+		{
+			this->wait_time = 0;
+			this->begin_wait_flag = false;
+		}
+	}
+	else //User was in the wait state in the previous timestep
+	{
+		if (!this - is_user_moving)
+		{
+			this->wait_time = previous->wait_time + 1.f / this->constants.FRAMERATE;
+		}
+		else
+		{
+			this->begin_wait_flag = false;
+			this->wait_time = 0.f;
+			this->agv_passed = true;
+		}
+	}
+
 }
 
 void AFeatures::ClosestStationComputations()
@@ -171,7 +268,7 @@ void AFeatures::ClosestStationComputations()
 	this->distance_to_closest_station = (this->constants.STATIONS[_closest_station] - this->user_location).GetAbs();
 }
 
-void AFeatures::StartAndEndStationsComputations()
+/*void AFeatures::StartAndEndStationsComputations()
 {
 	FVector2D* start_station_coords = &this->constants.STATIONS[this->start_station_id];
 	FVector2D user_to_start = -(this->user_location - *start_station_coords);
@@ -198,9 +295,9 @@ void AFeatures::StartAndEndStationsComputations()
 	else {
 		this->facing_end_station = false;
 	}
-}
+}*/
 
-bool AFeatures::LookingAtAGV()
+bool AFeatures::LookingAtAGV() const
 {
 	FVector2D user_to_agv = this->agv_location - this->user_location;
 	FVector2D normalized = user_to_agv.GetSafeNormal();
@@ -211,7 +308,7 @@ bool AFeatures::LookingAtAGV()
 	return false;
 }
 
-bool AFeatures::FacingSidewalk()
+bool AFeatures::FacingSidewalk() const
 {
 	// If looking in either the positive or negative x direction
 	if (abs(this->gaze_vector_2d.X) > this->constants.GAZING_ANGLE_THRESHOLD_COS)
@@ -222,17 +319,17 @@ bool AFeatures::FacingSidewalk()
 	return false;
 }
 
-bool AFeatures::FacingRoad()
+bool AFeatures::FacingRoad() const
 {
-	float road_midpoint = 0.5 * (this->constants.SIDEWALK_1["LOW"] + this->constants.SIDEWALK_2["High"]);
+	float road_midpoint = 0.5 * (this->constants.SIDEWALK_1["Low"] + this->constants.SIDEWALK_2["High"]);
 	
 	// IF ABOVE THE ROAD MIDPOINT AND LOOKING DOWN
-	if (this->user_location.X > road_midpoint && -this->gaze_vector_2d.X > this->constants.GAZING_ANGLE_THRESHOLD_COS)
+	if (this->user_location.Y > road_midpoint && -this->gaze_vector_2d.Y > this->constants.GAZING_ANGLE_THRESHOLD_COS)
 	{
 		return true;
 	}
 	// IF BELOW THE ROAD MIDPOINT AND LOOKING UP
-	if (this->user_location.X < road_midpoint && this->gaze_vector_2d.X > this->constants.GAZING_ANGLE_THRESHOLD_COS)
+	if (this->user_location.Y < road_midpoint && this->gaze_vector_2d.Y > this->constants.GAZING_ANGLE_THRESHOLD_COS)
 	{
 		return true;
 	}
@@ -299,16 +396,18 @@ bool AFeatures::copyFrom(AFeatures* Other)
 	this->closest_station = Other->closest_station;
 	this->distance_to_closest_station = Other->distance_to_closest_station;
 	this->looking_at_agv = Other->looking_at_agv;
+	this->wait_time = Other -> wait_time;
+	this->possible_interaction = Other->possible_interaction;
 
 	// Station info
-	this->start_station_id = Other->start_station_id;
-	this->end_station_id = Other->end_station_id;
+	//this->start_station_id = Other->start_station_id;
+	//this->end_station_id = Other->end_station_id;
 
 	// Start and end station features
-	this->distance_from_start_station = Other->distance_from_start_station;
-	this->distance_from_end_station = Other->distance_from_end_station;
-	this->facing_start_station = Other->facing_start_station;
-	this->facing_end_station = Other->facing_end_station;
+	//this->distance_from_start_station = Other->distance_from_start_station;
+	//this->distance_from_end_station = Other->distance_from_end_station;
+	//this->facing_start_station = Other->facing_start_station;
+	//this->facing_end_station = Other->facing_end_station;
 
 
 	return true;
