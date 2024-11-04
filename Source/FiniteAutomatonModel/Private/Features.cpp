@@ -61,6 +61,8 @@ void AFeatures::SetDefaults()
 	this->facing_start_station = true;
 	this->facing_end_station = false;
 
+	this->rolling_avg = 0.f;
+
 	// Frequency
 	this->constants = Constants();
 }
@@ -310,4 +312,21 @@ bool AFeatures::copyFrom(AFeatures* Other)
 
 
 	return true;
+}
+
+
+void AFeatures::CreateInputArray(TArray<float>& SingleFeatureInput)
+{
+
+	checkf(SingleFeatureInput.Num() == 32, TEXT("Incorrect length of Feature Array. Expected 32"));
+	SingleFeatureInput[0] = agv_to_user_distance.X;
+	SingleFeatureInput[1] = agv_to_user_distance.Y;
+	SingleFeatureInput[2] = agv_speed.X;
+	SingleFeatureInput[3] = agv_speed.Y;
+	SingleFeatureInput[4] = agv_speed.Length();
+	SingleFeatureInput[5] = abs(user_velocity.X);
+	SingleFeatureInput[6] = abs(user_velocity.Y);
+	SingleFeatureInput[7] = user_velocity.Length();
+	SingleFeatureInput[8] = user_velocity.X;
+	SingleFeatureInput[9] = user_velocity.Y;
 }

@@ -65,6 +65,8 @@ public:
 	bool facing_start_station;
 	bool facing_end_station;
 
+	float rolling_avg;
+
 	// constants
 	Constants constants;
 
@@ -85,6 +87,9 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	bool copyFrom(AFeatures* Other);
+
+	UFUNCTION(BlueprintCallable)
+	void CreateInputArray(TArray<float>& SingleFeatureInput);
 
 
 private:
