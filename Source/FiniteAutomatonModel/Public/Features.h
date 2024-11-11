@@ -55,6 +55,7 @@ public:
 	bool on_sidewalk;
 	bool on_road;
 	int closest_station;
+	bool looking_at_closest_station;
 	FVector2D distance_to_closest_station;
 	bool looking_at_agv;
 
@@ -70,8 +71,6 @@ public:
 	//FVector2D distance_from_end_station;
 	//bool facing_start_station;
 	//bool facing_end_station;
-
-	float rolling_avg;
 
 	// constants
 	Constants constants;
@@ -96,7 +95,10 @@ public:
 	bool copyFrom(AFeatures* Other);
 
 	UFUNCTION(BlueprintCallable)
-	void CreateInputArray(TArray<float>& SingleFeatureInput);
+	void CreateInputArray(UPARAM(Ref) TArray<float>& FullModelInput, int TimestampID);
+
+	UFUNCTION(BlueprintCallable)
+	void PrintPositions(const TArray<float>& ModelOutput);
 
 
 private:

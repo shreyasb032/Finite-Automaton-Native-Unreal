@@ -47,13 +47,15 @@ public:
 	UPROPERTY(BlueprintReadOnly)
 	int agv_num;
 
+	UPROPERTY(BlueprintReadOnly)
+	int num_lines;
+
 
 private:
 	FString filename;
 	TArray<FString> data;
 	FString header;
 	int line_number;
-	int num_lines;
 	TMap<int, int> agv_to_start;
 	TMap<int, int> agv_to_end;
 	bool header_written;

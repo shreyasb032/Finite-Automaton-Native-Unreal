@@ -6,7 +6,7 @@
 
 Constants::Constants()
 {
-	this->FRAMERATE = 1.0;
+	this->FRAMERATE = 10.0;
 	this->WALK_WAIT_THRESHOLD = 30.0;
 
 	this->STATIONS.Add(1, FVector2D(1580, 8683));

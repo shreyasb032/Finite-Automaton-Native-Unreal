@@ -66,7 +66,7 @@ void AFeatures::SetDefaults()
 	this->facing_start_station = true;
 	this->facing_end_station = false;*/
 
-	this->rolling_avg = 0.f;
+	this->looking_at_closest_station = false;
 
 	// Frequency
 	this->constants = Constants();
@@ -252,7 +252,7 @@ void AFeatures::WaitTimeComputations(AFeatures* previous)
 
 void AFeatures::ClosestStationComputations()
 {
-	float minimum_distance = INFINITY;
+	float minimum_distance = (float) 1e20;
 	int _closest_station = -1;
 	for (auto& station : this->constants.STATIONS)
 	{
@@ -354,6 +354,7 @@ void AFeatures::GazingStationComputations()
 	}
 	this->gazing_station = _gazing_station;
 	this->gazing_station_cos = maximum_cos;
+	this->looking_at_closest_station = (this->gazing_station == this->closest_station);
 }
 
 bool AFeatures::IntentToCrossComputations()
@@ -398,6 +399,7 @@ bool AFeatures::copyFrom(AFeatures* Other)
 	this->looking_at_agv = Other->looking_at_agv;
 	this->wait_time = Other -> wait_time;
 	this->possible_interaction = Other->possible_interaction;
+	this->looking_at_closest_station = Other->looking_at_closest_station;
 
 	// Station info
 	//this->start_station_id = Other->start_station_id;
@@ -414,18 +416,51 @@ bool AFeatures::copyFrom(AFeatures* Other)
 }
 
 
-void AFeatures::CreateInputArray(TArray<float>& SingleFeatureInput)
+void AFeatures::CreateInputArray(UPARAM(Ref) TArray<float>& FullModelInput, int TimestampID)
 {
 
-	checkf(SingleFeatureInput.Num() == 32, TEXT("Incorrect length of Feature Array. Expected 32"));
-	SingleFeatureInput[0] = agv_to_user_distance.X;
-	SingleFeatureInput[1] = agv_to_user_distance.Y;
-	SingleFeatureInput[2] = agv_speed.X;
-	SingleFeatureInput[3] = agv_speed.Y;
-	SingleFeatureInput[4] = agv_speed.Length();
-	SingleFeatureInput[5] = abs(user_velocity.X);
-	SingleFeatureInput[6] = abs(user_velocity.Y);
-	SingleFeatureInput[7] = user_velocity.Length();
-	SingleFeatureInput[8] = user_velocity.X;
-	SingleFeatureInput[9] = user_velocity.Y;
+	checkf(TimestampID < 30, TEXT("More than 30 Timestamp ID inputted to the feature array converter"));
+	checkf(FullModelInput.Num() == 930, TEXT("Incorrect length of Feature Array. Expected 930"));
+	int start_idx = TimestampID * 31;
+	FullModelInput[start_idx + 0] = user_location.X;
+	FullModelInput[start_idx + 1] = user_location.Y;
+	FullModelInput[start_idx + 2] = agv_to_user_distance.X;
+	FullModelInput[start_idx + 3] = agv_to_user_distance.Y;
+	FullModelInput[start_idx + 4] = agv_speed.X;
+	FullModelInput[start_idx + 5] = agv_speed.Y;
+	FullModelInput[start_idx + 6] = agv_speed.Length();
+	FullModelInput[start_idx + 7] = abs(user_velocity.X);
+	FullModelInput[start_idx + 8] = abs(user_velocity.Y);
+	FullModelInput[start_idx + 9] = user_velocity.Length();
+	FullModelInput[start_idx + 10] = user_velocity.X;
+	FullModelInput[start_idx + 11] = user_velocity.Y;
+	FullModelInput[start_idx + 12] = wait_time;
+	FullModelInput[start_idx + 13] = intent_to_cross;
+	FullModelInput[start_idx + 14] = gazing_station;
+	FullModelInput[start_idx + 15] = possible_interaction;
+	FullModelInput[start_idx + 16] = facing_sidewalk;
+	FullModelInput[start_idx + 17] = facing_road;
+	FullModelInput[start_idx + 18] = on_sidewalk;
+	FullModelInput[start_idx + 19] = on_road;
+	FullModelInput[start_idx + 20] = closest_station;
+	FullModelInput[start_idx + 21] = distance_to_closest_station.Length();
+	FullModelInput[start_idx + 22] = distance_to_closest_station.X;
+	FullModelInput[start_idx + 23] = distance_to_closest_station.Y;
+	FullModelInput[start_idx + 24] = looking_at_agv;
+	FullModelInput[start_idx + 25] = gaze_vector_3d.X;
+	FullModelInput[start_idx + 26] = gaze_vector_3d.Y;
+	FullModelInput[start_idx + 27] = gaze_vector_3d.Z;
+	FullModelInput[start_idx + 28] = agv_location.X;
+	FullModelInput[start_idx + 29] = agv_location.Y;
+	FullModelInput[start_idx + 30] = looking_at_closest_station;
+}
+
+void AFeatures::PrintPositions(const TArray<float>& ModelOutput)
+{
+	//checkf(ModelOutput.Num() == 80, TEXT("Expected an array size of 80"));
+	for (int i = 0; (int) i < ModelOutput.Num() / 2; i++)
+	{
+		//FString out = FString::Printf("(%.2f, %.2f)", ModelOutput[2 * i], ModelOutput[2 * i + 1]);
+		UE_LOG(LogTemp, Display, TEXT("(%.2f, %.2f)"), ModelOutput[2 * i], ModelOutput[2 * i + 1]);
+	}
 }
