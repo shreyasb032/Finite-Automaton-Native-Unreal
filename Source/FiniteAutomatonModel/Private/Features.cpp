@@ -420,8 +420,8 @@ void AFeatures::CreateInputArray(UPARAM(Ref) TArray<float>& FullModelInput, int 
 {
 
 	checkf(TimestampID < 30, TEXT("More than 30 Timestamp ID inputted to the feature array converter"));
-	checkf(FullModelInput.Num() == 930, TEXT("Incorrect length of Feature Array. Expected 930"));
-	int start_idx = TimestampID * 31;
+	checkf(FullModelInput.Num() == 900, TEXT("Incorrect length of Feature Array. Expected 900"));
+	int start_idx = TimestampID * 30;
 	FullModelInput[start_idx + 0] = user_location.X;
 	FullModelInput[start_idx + 1] = user_location.Y;
 	FullModelInput[start_idx + 2] = agv_to_user_distance.X;
@@ -437,23 +437,67 @@ void AFeatures::CreateInputArray(UPARAM(Ref) TArray<float>& FullModelInput, int 
 	FullModelInput[start_idx + 12] = wait_time;
 	FullModelInput[start_idx + 13] = intent_to_cross;
 	FullModelInput[start_idx + 14] = gazing_station;
-	FullModelInput[start_idx + 15] = possible_interaction;
-	FullModelInput[start_idx + 16] = facing_sidewalk;
-	FullModelInput[start_idx + 17] = facing_road;
-	FullModelInput[start_idx + 18] = on_sidewalk;
-	FullModelInput[start_idx + 19] = on_road;
-	FullModelInput[start_idx + 20] = closest_station;
-	FullModelInput[start_idx + 21] = distance_to_closest_station.Length();
-	FullModelInput[start_idx + 22] = distance_to_closest_station.X;
-	FullModelInput[start_idx + 23] = distance_to_closest_station.Y;
-	FullModelInput[start_idx + 24] = looking_at_agv;
-	FullModelInput[start_idx + 25] = gaze_vector_3d.X;
-	FullModelInput[start_idx + 26] = gaze_vector_3d.Y;
-	FullModelInput[start_idx + 27] = gaze_vector_3d.Z;
-	FullModelInput[start_idx + 28] = agv_location.X;
-	FullModelInput[start_idx + 29] = agv_location.Y;
-	FullModelInput[start_idx + 30] = looking_at_closest_station;
+	//FullModelInput[start_idx + 15] = possible_interaction;
+	FullModelInput[start_idx + 15] = facing_sidewalk;
+	FullModelInput[start_idx + 16] = facing_road;
+	FullModelInput[start_idx + 17] = on_sidewalk;
+	FullModelInput[start_idx + 18] = on_road;
+	FullModelInput[start_idx + 19] = closest_station;
+	FullModelInput[start_idx + 20] = distance_to_closest_station.Length();
+	FullModelInput[start_idx + 21] = distance_to_closest_station.X;
+	FullModelInput[start_idx + 22] = distance_to_closest_station.Y;
+	FullModelInput[start_idx + 23] = looking_at_agv;
+	FullModelInput[start_idx + 24] = gaze_vector_3d.X;
+	FullModelInput[start_idx + 25] = gaze_vector_3d.Y;
+	FullModelInput[start_idx + 26] = gaze_vector_3d.Z;
+	FullModelInput[start_idx + 27] = agv_location.X;
+	FullModelInput[start_idx + 28] = agv_location.Y;
+	FullModelInput[start_idx + 29] = looking_at_closest_station;
 }
+
+
+void AFeatures::UpdateInputArray(UPARAM(Ref) TArray<float>& FullModelInput)
+{
+	checkf(FullModelInput.Num() == 900, TEXT("Incorrect length of Feature Array. Expected 900"));
+	for (int i = 30; i < 900; i++)
+	{
+		FullModelInput[i - 30] = FullModelInput[i];
+	}
+
+	int start_idx = 870;
+	FullModelInput[start_idx + 0] = user_location.X;
+	FullModelInput[start_idx + 1] = user_location.Y;
+	FullModelInput[start_idx + 2] = agv_to_user_distance.X;
+	FullModelInput[start_idx + 3] = agv_to_user_distance.Y;
+	FullModelInput[start_idx + 4] = agv_speed.X;
+	FullModelInput[start_idx + 5] = agv_speed.Y;
+	FullModelInput[start_idx + 6] = agv_speed.Length();
+	FullModelInput[start_idx + 7] = abs(user_velocity.X);
+	FullModelInput[start_idx + 8] = abs(user_velocity.Y);
+	FullModelInput[start_idx + 9] = user_velocity.Length();
+	FullModelInput[start_idx + 10] = user_velocity.X;
+	FullModelInput[start_idx + 11] = user_velocity.Y;
+	FullModelInput[start_idx + 12] = wait_time;
+	FullModelInput[start_idx + 13] = intent_to_cross;
+	FullModelInput[start_idx + 14] = gazing_station;
+	//FullModelInput[start_idx + 15] = possible_interaction;
+	FullModelInput[start_idx + 15] = facing_sidewalk;
+	FullModelInput[start_idx + 16] = facing_road;
+	FullModelInput[start_idx + 17] = on_sidewalk;
+	FullModelInput[start_idx + 18] = on_road;
+	FullModelInput[start_idx + 19] = closest_station;
+	FullModelInput[start_idx + 20] = distance_to_closest_station.Length();
+	FullModelInput[start_idx + 21] = distance_to_closest_station.X;
+	FullModelInput[start_idx + 22] = distance_to_closest_station.Y;
+	FullModelInput[start_idx + 23] = looking_at_agv;
+	FullModelInput[start_idx + 24] = gaze_vector_3d.X;
+	FullModelInput[start_idx + 25] = gaze_vector_3d.Y;
+	FullModelInput[start_idx + 26] = gaze_vector_3d.Z;
+	FullModelInput[start_idx + 27] = agv_location.X;
+	FullModelInput[start_idx + 28] = agv_location.Y;
+	FullModelInput[start_idx + 29] = looking_at_closest_station;
+}
+
 
 void AFeatures::PrintPositions(const TArray<float>& ModelOutput)
 {

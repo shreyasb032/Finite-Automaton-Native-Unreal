@@ -56,8 +56,6 @@ private:
 	TArray<FString> data;
 	FString header;
 	int line_number;
-	TMap<int, int> agv_to_start;
-	TMap<int, int> agv_to_end;
 	bool header_written;
 	bool state_header_written;
 };

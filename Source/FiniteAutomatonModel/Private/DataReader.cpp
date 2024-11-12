@@ -11,32 +11,6 @@ ADataReader::ADataReader()
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = false;
 	this->line_number = 1;
-	this->agv_to_start.Add(1, 1);
-	this->agv_to_start.Add(2, 2);
-	this->agv_to_start.Add(3, 4);
-	this->agv_to_start.Add(4, 3);
-	this->agv_to_start.Add(5, 6);
-	this->agv_to_start.Add(6, 5);
-	this->agv_to_start.Add(7, 6);
-	this->agv_to_start.Add(8, 8);
-
-	this->agv_to_end.Add(1, 2);
-	this->agv_to_end.Add(2, 4);
-	this->agv_to_end.Add(3, 3);
-	this->agv_to_end.Add(4, 6);
-	this->agv_to_end.Add(5, 5);
-	this->agv_to_end.Add(6, 6);
-	this->agv_to_end.Add(7, 8);
-	this->agv_to_end.Add(8, 7);
-
-	for (int i = 9; i < 17; i++) 
-	{
-		int start_station, end_station;
-		start_station = this->agv_to_end[17 - i];
-		end_station = this->agv_to_start[17 - i];
-		this->agv_to_start.Add(i, start_station);
-		this->agv_to_end.Add(i, end_station);
-	}
 	this->num_lines = -1;
 	this->header_written = false;
 	this->state_header_written = false;
@@ -136,13 +110,7 @@ void ADataReader::GetOneLine(AFeatures* features, int line_num = -1)
 	//return;
 	this->reset_flag = false;
 	if (this->agv_num != _agv_num) this->reset_flag = true;
-	
 	this->agv_num = _agv_num;
-	int start_station, end_station;
-	start_station = this->agv_to_start[agv_num];
-	end_station = this->agv_to_end[agv_num];
-
-
 	float yaw = 45.f;
 	features->SetRawFeatures(user_x, user_y, agv_x, agv_y, gaze_x, gaze_y, gaze_z, yaw);
 	//features->SetStationInfo(start_station, end_station);

@@ -98,6 +98,9 @@ public:
 	void CreateInputArray(UPARAM(Ref) TArray<float>& FullModelInput, int TimestampID);
 
 	UFUNCTION(BlueprintCallable)
+	void UpdateInputArray(UPARAM(Ref) TArray<float>& FullModelInput);
+
+	UFUNCTION(BlueprintCallable)
 	void PrintPositions(const TArray<float>& ModelOutput);
 
 
