@@ -146,3 +146,14 @@ void ANNEInferenceActor::RunModel(const TArray<float>& InputData, TArray<float>&
 	OutputData = ModelHelper->OutputData;
 
 }
+
+TArray<FVector2D> ANNEInferenceActor::ConvertToVectors(const TArray<float>& OutputData)
+{
+	TArray<FVector2D> out;
+	for (int i = 0; i < OutputData.Num() / 2; i++)
+	{
+		FVector2D pos(OutputData[2 * i], OutputData[2 * i + 1]);
+		out.Push(pos);
+	}
+	return out;
+}

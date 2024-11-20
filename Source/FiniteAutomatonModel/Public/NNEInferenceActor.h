@@ -42,6 +42,8 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void RunModel(const TArray<float>& InputData, TArray<float>& OutputData);
 
+	TArray<FVector2D> ConvertToVectors(const TArray<float>& OutputData);
+
 private:
 	TSharedPtr<FMyModelHelper> ModelHelper;
 
