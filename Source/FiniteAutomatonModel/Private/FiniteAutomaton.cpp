@@ -287,10 +287,10 @@ int AFiniteAutomaton::HandleMovingAlongSidewalkState(AFeatures* current) const
 	/*bool near_end_station_x = current->distance_from_end_station.X < this->constants.STATION_LENGTH;
 	bool near_end_station = near_end_station_x && current->distance_from_end_station.Y < this->constants.NEAR_STATION_THRESHOLD;
 	if (current->is_user_moving && !current->facing_road && near_end_station) return 5;*/
-	bool condition1 = current->user_velocity.Length() < this->constants.WALK_WAIT_THRESHOLD;
+	condition1 = current->user_velocity.Length() < this->constants.WALK_WAIT_THRESHOLD;
 	condition1 = condition1 || (current->closest_station == current->gazing_station);
-	bool condition2 = !current->facing_road;
-	bool condition3 = current->distance_to_closest_station.Length() < this->constants.AT_STATION_THRESHOLD * 2;
+	condition2 = !current->facing_road;
+	condition3 = current->distance_to_closest_station.Length() < this->constants.AT_STATION_THRESHOLD * 2;
 	if (condition1 && condition2 && condition3) return 5;
 
 	return 3;
@@ -312,7 +312,7 @@ int AFiniteAutomaton::HandleCrossState(AFeatures* current) const
 	if (!current->is_user_moving && current->looking_at_agv && current->on_road /*&& current->possible_interaction*/) return 2;
 
 	// Transition to At Station
-	bool near_end_station = current->distance_to_closest_station.Length() <= this->constants.AT_STATION_THRESHOLD;
+	near_end_station = current->distance_to_closest_station.Length() <= this->constants.AT_STATION_THRESHOLD;
 	if (!current->is_user_moving && !current->facing_road && near_end_station) return 0;
 
 	return 2;
