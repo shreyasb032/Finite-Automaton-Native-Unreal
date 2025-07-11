@@ -6,7 +6,7 @@
 
 Constants::Constants()
 {
-	this->FRAMERATE = 1.0;
+	this->FRAMERATE = 10.0;
 	this->WALK_WAIT_THRESHOLD = 30.0;
 
 	this->STATIONS.Add(1, FVector2D(1580, 8683));
@@ -22,6 +22,7 @@ Constants::Constants()
 	this->NEAR_STATION_THRESHOLD = 400.;
 	this->MARGIN_NEAR_SIDEWALKS = 100.;
 	this->STATION_LENGTH = 500.;
+	this->COLLISION_THRESHOLD = 50;
 
 	this->GAZING_ANGLE_THRESHOLD = 40.0;
 	this->GAZING_ANGLE_THRESHOLD_RADIANS = PI / 180 * this->GAZING_ANGLE_THRESHOLD;

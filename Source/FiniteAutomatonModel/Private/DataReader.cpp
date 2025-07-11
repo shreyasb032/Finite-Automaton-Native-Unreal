@@ -11,32 +11,6 @@ ADataReader::ADataReader()
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = false;
 	this->line_number = 1;
-	this->agv_to_start.Add(1, 1);
-	this->agv_to_start.Add(2, 2);
-	this->agv_to_start.Add(3, 4);
-	this->agv_to_start.Add(4, 3);
-	this->agv_to_start.Add(5, 6);
-	this->agv_to_start.Add(6, 5);
-	this->agv_to_start.Add(7, 6);
-	this->agv_to_start.Add(8, 8);
-
-	this->agv_to_end.Add(1, 2);
-	this->agv_to_end.Add(2, 4);
-	this->agv_to_end.Add(3, 3);
-	this->agv_to_end.Add(4, 6);
-	this->agv_to_end.Add(5, 5);
-	this->agv_to_end.Add(6, 6);
-	this->agv_to_end.Add(7, 8);
-	this->agv_to_end.Add(8, 7);
-
-	for (int i = 9; i < 17; i++) 
-	{
-		int start_station, end_station;
-		start_station = this->agv_to_end[17 - i];
-		end_station = this->agv_to_start[17 - i];
-		this->agv_to_start.Add(i, start_station);
-		this->agv_to_end.Add(i, end_station);
-	}
 	this->num_lines = -1;
 	this->header_written = false;
 	this->state_header_written = false;
@@ -74,12 +48,22 @@ bool ADataReader::ReadData()
 	this->header_written = false;
 	this->state_header_written = false;
 	
-	this->header = "user_x, user_y, agv_x, agv_y, gaze_vector_x, gaze_vector_y, gaze_vector_z, user_yaw, ";
+	/*this->header = "user_x, user_y, agv_x, agv_y, gaze_vector_x, gaze_vector_y, gaze_vector_z, user_yaw, ";
 	this->header += "agv_user_distance_x, agv_user_distance_y, agv_speed_x, agv_speed_y, user_velocity_x, user_velocity_y, is_user_moving, ";
 	this->header += "intent_to_cross, gazing_station, gazing_station_cos, facing_sidewalk, facing_road, on_sidewalk, on_road, ";
-	this->header += "closest_station, distance_to_closest_station_x, distance_to_closest_station_y, looking_at_agv, ";
-	this->header += "start_station_id, end_station_id, distance_from_start_station_x, distance_from_start_station_y, ";
-	this->header += "distance_from_end_station_x, distance_from_end_station_y, facing_start_station, facing_end_station";
+	this->header += "closest_station, distance_to_closest_station_x, distance_to_closest_station_y, looking_at_agv, ";*/
+	/*this->header += "start_station_id, end_station_id, distance_from_start_station_x, distance_from_start_station_y, ";
+	this->header += "distance_from_end_station_x, distance_from_end_station_y, facing_start_station, facing_end_station";*/
+
+	this->header = "AGV_name, User_X, User_Y, AGV_distance_X, AGV_distance_Y, AGV_speed_X,";
+	this->header += "AGV_speed_Y, AGV_speed, User_speed_X, User_speed_Y,";
+	this->header += "User_speed, User_velocity_X, User_velocity_Y, Wait_time,";
+	this->header += "intent_to_cross, Gazing_station, possible_interaction,";
+	this->header += "facing_along_sidewalk, facing_to_road, On_sidewalks, On_road,";
+	this->header += "closest_station, distance_to_closest_station,";
+	this->header += "distance_to_closest_station_X, distance_to_closest_station_Y,";
+	this->header += "looking_at_AGV, GazeDirection_X, GazeDirection_Y,";
+	this->header += "GazeDirection_Z, AGV_X, AGV_Y, looking_at_closest_station";
 
 	return read;
 }
@@ -109,34 +93,27 @@ void ADataReader::GetOneLine(AFeatures* features, int line_num = -1)
 	FString delimiter = ",";
 	row.ParseIntoArray(splitted, *delimiter);
 
-	gaze_x = FCString::Atof(*splitted[0]);
-	gaze_y = FCString::Atof(*splitted[1]);
-	gaze_z = FCString::Atof(*splitted[2]);
+	FString agv_name = splitted[0];
+
+	gaze_x = FCString::Atof(*splitted[5]);
+	gaze_y = FCString::Atof(*splitted[6]);
+	gaze_z = FCString::Atof(*splitted[7]);
 
 	agv_x = FCString::Atof(*splitted[3]);
 	agv_y = FCString::Atof(*splitted[4]);
 
-	user_x = FCString::Atof(*splitted[5]);
-	user_y = FCString::Atof(*splitted[6]);
-
-	FString agv_name;
-	agv_name = splitted[7];
+	user_x = FCString::Atof(*splitted[1]);
+	user_y = FCString::Atof(*splitted[2]);
 
 	int _agv_num = FCString::Atoi(*agv_name.Mid(3, 2));
 	//GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, FString::Printf(TEXT("AGV name %s AGV number %d"), *agv_name, agv_num));
 	//return;
 	this->reset_flag = false;
 	if (this->agv_num != _agv_num) this->reset_flag = true;
-	
 	this->agv_num = _agv_num;
-	int start_station, end_station;
-	start_station = this->agv_to_start[agv_num];
-	end_station = this->agv_to_end[agv_num];
-
-
 	float yaw = 45.f;
 	features->SetRawFeatures(user_x, user_y, agv_x, agv_y, gaze_x, gaze_y, gaze_z, yaw);
-	features->SetStationInfo(start_station, end_station);
+	//features->SetStationInfo(start_station, end_station);
 }
 
 void ADataReader::WriteOneLine(AFeatures* features, FString out_filename, bool print_to_screen)
@@ -152,71 +129,88 @@ void ADataReader::WriteOneLine(AFeatures* features, FString out_filename, bool p
 			out_filename += "0" + this->PID;
 		}
 
-		out_filename += "_" + this->SCN + "_Features.csv";
+		out_filename += "_" + this->SCN + ".csv";
 	}
 
 	FString save_file = FPaths::Combine(FPaths::ProjectDir(), "Data", "Output", "GeneratedFeatures", out_filename);
 	this->header += LINE_TERMINATOR;
 	if (!this->header_written)
 	{
-		FFileHelper::SaveStringToFile(this->header, *save_file, FFileHelper::EEncodingOptions::AutoDetect, &IFileManager::Get(), EFileWrite::FILEWRITE_Append);
+		FFileHelper::SaveStringToFile(this->header, *save_file, FFileHelper::EEncodingOptions::AutoDetect, &IFileManager::Get(), EFileWrite::FILEWRITE_AllowRead);
 		this->header_written = true;
 	}
 	FString data_string = "";
+	
+	//AGV_name
+	data_string += FString::FromInt(this->agv_num) + ',';
 
 	// User location
 	data_string += FString::SanitizeFloat(features->user_location.X) + ",";
 	data_string += FString::SanitizeFloat(features->user_location.Y) + ",";
+	
+	// AGV-User distance
+	data_string += FString::SanitizeFloat(features->agv_to_user_distance.X) + ",";
+	data_string += FString::SanitizeFloat(features->agv_to_user_distance.Y) + ",";
+
+	// AGV Speed
+	data_string += FString::SanitizeFloat(features->agv_speed.X) + ",";
+	data_string += FString::SanitizeFloat(features->agv_speed.Y) + ",";
+	data_string += FString::SanitizeFloat(features->agv_speed.Length()) + ",";
+
+	// User speed
+	data_string += FString::SanitizeFloat(abs(features->user_velocity.X)) + ",";
+	data_string += FString::SanitizeFloat(abs(features->user_velocity.Y)) + ",";
+	data_string += FString::SanitizeFloat(features->user_velocity.Length()) + ",";
+
+
+	// User velocity
+	data_string += FString::SanitizeFloat(features->user_velocity.X) + ",";
+	data_string += FString::SanitizeFloat(features->user_velocity.Y) + ",";
+
+	// Wait time
+	data_string += FString::SanitizeFloat(features->wait_time) + ",";
+
+	// Intent to cross
+	data_string += features->intent_to_cross ? "TRUE," : "FALSE,";
+
+	// Gazing Station
+	data_string += FString::FromInt(features->gazing_station) + ",";
+
+	// Possible interaction
+	data_string += features->possible_interaction ? "TRUE," : "FALSE,";
+
+	// Facing sidewalk
+	data_string += features->facing_sidewalk ? "TRUE," : "FALSE,";
+
+	// Facing road
+	data_string += features->facing_road ? "TRUE," : "FALSE,";
+
+	// On sidewalk
+	data_string += features->on_sidewalk ? "TRUE," : "FALSE,";
+
+	// On road
+	data_string += features->on_road ? "TRUE," : "FALSE,";
+
+	// closest station
+	data_string += FString::FromInt(features->closest_station) + ",";
+	data_string += FString::SanitizeFloat(features->distance_to_closest_station.Length()) + ",";
+	data_string += FString::SanitizeFloat(features->distance_to_closest_station.X) + ",";
+	data_string += FString::SanitizeFloat(features->distance_to_closest_station.Y) + ",";
+
+	// Looking at AGV
+	data_string += features->looking_at_agv ? "TRUE," : "FALSE,";
+
+	// Gaze direction
+	data_string += FString::SanitizeFloat(features->gaze_vector_3d.X) + ",";
+	data_string += FString::SanitizeFloat(features->gaze_vector_3d.Y) + ",";
+	data_string += FString::SanitizeFloat(features->gaze_vector_3d.Z) + ",";
 
 	// AGV location
 	data_string += FString::SanitizeFloat(features->agv_location.X) + ",";
 	data_string += FString::SanitizeFloat(features->agv_location.Y) + ",";
 
-	// Gaze vector
-	data_string += FString::SanitizeFloat(features->gaze_vector_3d.X) + ",";
-	data_string += FString::SanitizeFloat(features->gaze_vector_3d.Y) + ",";
-	data_string += FString::SanitizeFloat(features->gaze_vector_3d.Z) + ",";
-
-	// Yaw
-	data_string += FString::SanitizeFloat(features->_user_yaw) + ",";
-
-	// Generated features
-	data_string += FString::SanitizeFloat(features->agv_to_user_distance.X) + ",";
-	data_string += FString::SanitizeFloat(features->agv_to_user_distance.Y) + ",";
-
-	data_string += FString::SanitizeFloat(features->agv_speed.X) + ",";
-	data_string += FString::SanitizeFloat(features->agv_speed.Y) + ",";
-
-	data_string += FString::SanitizeFloat(features->user_velocity.X) + ",";
-	data_string += FString::SanitizeFloat(features->user_velocity.Y) + ",";
-
-	data_string += features->is_user_moving ? "TRUE,": "FALSE,";
-	data_string += features->intent_to_cross ? "TRUE," : "FALSE,";
-
-	data_string += FString::FromInt(features->gazing_station) + ",";
-	data_string += FString::SanitizeFloat(features->gazing_station_cos) + ",";
-
-	data_string += features->facing_sidewalk ? "TRUE," : "FALSE,";
-	data_string += features->facing_road ? "TRUE," : "FALSE,";
-	data_string += features->on_sidewalk ? "TRUE," : "FALSE,";
-	data_string += features->on_road ? "TRUE," : "FALSE,";
-
-	data_string += FString::FromInt(features->closest_station) + ",";
-	data_string += FString::SanitizeFloat(features->distance_to_closest_station.X) + ",";
-	data_string += FString::SanitizeFloat(features->distance_to_closest_station.Y) + ",";
-
-	data_string += features->looking_at_agv ? "TRUE," : "FALSE,";
-
-	data_string += FString::FromInt(features->start_station_id) + ",";
-	data_string += FString::FromInt(features->end_station_id) + ",";
-
-	data_string += FString::SanitizeFloat(features->distance_from_start_station.X) + ",";
-	data_string += FString::SanitizeFloat(features->distance_from_start_station.Y) + ",";
-	data_string += FString::SanitizeFloat(features->distance_from_end_station.X) + ",";
-	data_string += FString::SanitizeFloat(features->distance_from_end_station.Y) + ",";
-
-	data_string += features->facing_start_station ? "TRUE," : "FALSE,";
-	data_string += features->facing_end_station ? "TRUE" : "FALSE";
+	// Looking at closest station
+	data_string += features->looking_at_closest_station ? "TRUE" : "FALSE";
 
 	data_string += LINE_TERMINATOR;
 	FFileHelper::SaveStringToFile(data_string, *save_file, FFileHelper::EEncodingOptions::AutoDetect, &IFileManager::Get(), EFileWrite::FILEWRITE_Append);
@@ -249,11 +243,3 @@ void ADataReader::WriteState(FString state, FString out_filename)
 	state += LINE_TERMINATOR;
 	FFileHelper::SaveStringToFile(state, *save_file, FFileHelper::EEncodingOptions::AutoDetect, &IFileManager::Get(), EFileWrite::FILEWRITE_Append);
 }
-
-// Called every frame
-/*void ADataReader::Tick(float DeltaTime)
-{
-	Super::Tick(DeltaTime);
-
-}*/
-

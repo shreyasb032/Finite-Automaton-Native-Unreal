@@ -44,7 +44,7 @@ void AFeatures::SetDefaults()
 	this->intent_to_cross = false;
 	this->gazing_station = -1;
 	this->gazing_station_cos = -1.0;
-	//bool possible_interaction;
+	this->possible_interaction = false;
 	this->facing_sidewalk = false;
 	this->facing_road = false;
 	this->on_sidewalk = false;
@@ -55,12 +55,18 @@ void AFeatures::SetDefaults()
 	this->closest_station = 0;
 	this->gazing_station = 0;
 	this->distance_to_closest_station = FVector2D(0.0, 0.0);
-	this->start_station_id = 0;
+
+	this->begin_wait_flag = false;
+	this->agv_passed = false;
+
+	/*this->start_station_id = 0;
 	this->end_station_id = 1;
 	this->distance_from_start_station = FVector2D(0.0, 0.0);
 	this->distance_from_end_station = FVector2D(0.0, 0.0);
 	this->facing_start_station = true;
-	this->facing_end_station = false;
+	this->facing_end_station = false;*/
+
+	this->looking_at_closest_station = false;
 
 	// Frequency
 	this->constants = Constants();
@@ -78,36 +84,40 @@ void AFeatures::SetRawFeatures(float user_x, float user_y, float agv_x, float ag
 }
 
 
-void AFeatures::SetStationInfo(int start_station, int end_station)
+/*void AFeatures::SetStationInfo(int start_station, int end_station)
 {
 	this->start_station_id = start_station;
 	this->end_station_id = end_station;
-}
+}*/
 
 void AFeatures::GenerateRemainingFeatures(AFeatures* previous)
 {
 	this->agv_to_user_distance = (this->user_location - this->agv_location).GetAbs();
 	this->agv_speed = (this->agv_location - previous->agv_location).GetAbs() * this->constants.FRAMERATE;
+	this->agv_velocity = (this->agv_location - previous->agv_location) * this->constants.FRAMERATE;
 	this->user_velocity = (this->user_location - previous->user_location) * this->constants.FRAMERATE;
 	this->is_user_moving = (user_velocity.Length() > this->constants.WALK_WAIT_THRESHOLD);
 
-	// TODO: Change this when needed. We are currently not using the wait time feature for anything
+	/*// TODO: Change this when needed. We are currently not using the wait time feature for anything
 	if (this->user_velocity.Length() < this->constants.WALK_WAIT_THRESHOLD)
 	{
 		this->wait_time = previous->wait_time + 1.0 / this->constants.FRAMERATE;
 	}
 	else {
 		this->wait_time = 0.f;
-	}
+	}*/
 
 	this->on_sidewalk = WithinSidewalkBounds(&this->user_location, this->constants.MARGIN_NEAR_SIDEWALKS);
 	this->on_road = WithinRoadBounds(&this->user_location, this->constants.MARGIN_NEAR_SIDEWALKS / 2.0);
-	
+
+	// Compute the wait time
+	this->WaitTimeComputations(previous);
+
 	// Closest station
 	this->ClosestStationComputations();
 
 	// Start and end station distance and facing computations
-	this->StartAndEndStationsComputations();
+	//this->StartAndEndStationsComputations();
 
 	// Looking at AGV
 	this->looking_at_agv = LookingAtAGV();
@@ -155,9 +165,94 @@ bool AFeatures::WithinSidewalkBounds(FVector2D* location, float error_range) con
 	return false;
 }
 
+void AFeatures::PossibleInteractionComputations()
+{
+	float distance = this->agv_to_user_distance.Length(); // The distance between the AGV and the participant
+	// If the distance between the participant and the AGV is lower than a threshold, set the possible interaction to be true and return
+	if (distance < this->constants.COLLISION_THRESHOLD) {
+		this->possible_interaction = true;
+		return;
+	}
+	// Compute the relative velocity between the participant and the AGV
+	FVector2D relative_velocity = this->user_velocity - this->agv_velocity;
+	float relative_speed = relative_velocity.Length();
+	
+	// If there is very little relative velocity between the participant and the AGV, there would be no interaction between them
+	if (relative_speed < this->constants.WALK_WAIT_THRESHOLD)
+	{
+		this->possible_interaction = false;
+		return;
+	}
+
+	// Compute the time at which the distance between the AGV and the participant will be minimum
+	// assuming that they continue at the same velocities
+	FVector2D agv_to_user_vector = this->user_location - this->agv_location;
+	float time_at_closest_point = -agv_to_user_vector.Dot(relative_velocity) / (relative_speed * relative_speed);
+	
+	// If this time is positive, the distance between the AGV and the participant is decreasing
+	if (time_at_closest_point > 0)
+	{
+		FVector2D future_user_location = this->user_location + this->user_velocity * time_at_closest_point;
+		FVector2D future_agv_location = this->agv_location + this->agv_velocity * time_at_closest_point;
+		distance = (future_user_location - future_agv_location).Length();
+		if (distance < this->constants.COLLISION_THRESHOLD)
+		{
+			this->possible_interaction = true;
+			return;
+		}
+	}
+	
+	// If all else fails
+	this->possible_interaction = false;
+	return;
+}
+
+void AFeatures::WaitTimeComputations(AFeatures* previous)
+{
+	// If the agv has already passed, set the wait time to 0 and return
+	this->agv_passed = previous->agv_passed;
+	if (this->agv_passed)
+	{
+		this->wait_time = 0.f;
+		return;
+	}
+
+	// Else, if the agv has not passed, do additional computations
+
+	// If the user was walking in the previous timestep
+	if (!previous->begin_wait_flag)
+	{
+		// If the user is stopped on the sidewalk
+		if (!this->is_user_moving && this->on_sidewalk)
+		{
+			this->begin_wait_flag = true;
+			this->wait_time = previous->wait_time + 1.f / this->constants.FRAMERATE;
+		}
+		else 
+		{
+			this->wait_time = 0;
+			this->begin_wait_flag = false;
+		}
+	}
+	else //User was in the wait state in the previous timestep
+	{
+		if (!this - is_user_moving)
+		{
+			this->wait_time = previous->wait_time + 1.f / this->constants.FRAMERATE;
+		}
+		else
+		{
+			this->begin_wait_flag = false;
+			this->wait_time = 0.f;
+			this->agv_passed = true;
+		}
+	}
+
+}
+
 void AFeatures::ClosestStationComputations()
 {
-	float minimum_distance = INFINITY;
+	float minimum_distance = (float) 1e20;
 	int _closest_station = -1;
 	for (auto& station : this->constants.STATIONS)
 	{
@@ -173,7 +268,7 @@ void AFeatures::ClosestStationComputations()
 	this->distance_to_closest_station = (this->constants.STATIONS[_closest_station] - this->user_location).GetAbs();
 }
 
-void AFeatures::StartAndEndStationsComputations()
+/*void AFeatures::StartAndEndStationsComputations()
 {
 	FVector2D* start_station_coords = &this->constants.STATIONS[this->start_station_id];
 	FVector2D user_to_start = -(this->user_location - *start_station_coords);
@@ -200,7 +295,7 @@ void AFeatures::StartAndEndStationsComputations()
 	else {
 		this->facing_end_station = false;
 	}
-}
+}*/
 
 bool AFeatures::LookingAtAGV() const
 {
@@ -259,6 +354,7 @@ void AFeatures::GazingStationComputations()
 	}
 	this->gazing_station = _gazing_station;
 	this->gazing_station_cos = maximum_cos;
+	this->looking_at_closest_station = (this->gazing_station == this->closest_station);
 }
 
 bool AFeatures::IntentToCrossComputations()
@@ -301,17 +397,114 @@ bool AFeatures::copyFrom(AFeatures* Other)
 	this->closest_station = Other->closest_station;
 	this->distance_to_closest_station = Other->distance_to_closest_station;
 	this->looking_at_agv = Other->looking_at_agv;
+	this->wait_time = Other -> wait_time;
+	this->possible_interaction = Other->possible_interaction;
+	this->looking_at_closest_station = Other->looking_at_closest_station;
 
 	// Station info
-	this->start_station_id = Other->start_station_id;
-	this->end_station_id = Other->end_station_id;
+	//this->start_station_id = Other->start_station_id;
+	//this->end_station_id = Other->end_station_id;
 
 	// Start and end station features
-	this->distance_from_start_station = Other->distance_from_start_station;
-	this->distance_from_end_station = Other->distance_from_end_station;
-	this->facing_start_station = Other->facing_start_station;
-	this->facing_end_station = Other->facing_end_station;
+	//this->distance_from_start_station = Other->distance_from_start_station;
+	//this->distance_from_end_station = Other->distance_from_end_station;
+	//this->facing_start_station = Other->facing_start_station;
+	//this->facing_end_station = Other->facing_end_station;
 
 
 	return true;
+}
+
+
+void AFeatures::CreateInputArray(UPARAM(Ref) TArray<float>& FullModelInput, int TimestampID)
+{
+
+	checkf(TimestampID < 30, TEXT("More than 30 Timestamp ID inputted to the feature array converter"));
+	checkf(FullModelInput.Num() == 900, TEXT("Incorrect length of Feature Array. Expected 900"));
+	int start_idx = TimestampID * 30;
+	FullModelInput[start_idx + 0] = user_location.X;
+	FullModelInput[start_idx + 1] = user_location.Y;
+	FullModelInput[start_idx + 2] = agv_to_user_distance.X;
+	FullModelInput[start_idx + 3] = agv_to_user_distance.Y;
+	FullModelInput[start_idx + 4] = agv_speed.X;
+	FullModelInput[start_idx + 5] = agv_speed.Y;
+	FullModelInput[start_idx + 6] = agv_speed.Length();
+	FullModelInput[start_idx + 7] = abs(user_velocity.X);
+	FullModelInput[start_idx + 8] = abs(user_velocity.Y);
+	FullModelInput[start_idx + 9] = user_velocity.Length();
+	FullModelInput[start_idx + 10] = user_velocity.X;
+	FullModelInput[start_idx + 11] = user_velocity.Y;
+	FullModelInput[start_idx + 12] = wait_time;
+	FullModelInput[start_idx + 13] = intent_to_cross;
+	FullModelInput[start_idx + 14] = gazing_station;
+	//FullModelInput[start_idx + 15] = possible_interaction;
+	FullModelInput[start_idx + 15] = facing_sidewalk;
+	FullModelInput[start_idx + 16] = facing_road;
+	FullModelInput[start_idx + 17] = on_sidewalk;
+	FullModelInput[start_idx + 18] = on_road;
+	FullModelInput[start_idx + 19] = closest_station;
+	FullModelInput[start_idx + 20] = distance_to_closest_station.Length();
+	FullModelInput[start_idx + 21] = distance_to_closest_station.X;
+	FullModelInput[start_idx + 22] = distance_to_closest_station.Y;
+	FullModelInput[start_idx + 23] = looking_at_agv;
+	FullModelInput[start_idx + 24] = gaze_vector_3d.X;
+	FullModelInput[start_idx + 25] = gaze_vector_3d.Y;
+	FullModelInput[start_idx + 26] = gaze_vector_3d.Z;
+	FullModelInput[start_idx + 27] = agv_location.X;
+	FullModelInput[start_idx + 28] = agv_location.Y;
+	FullModelInput[start_idx + 29] = looking_at_closest_station;
+}
+
+
+void AFeatures::UpdateInputArray(UPARAM(Ref) TArray<float>& FullModelInput)
+{
+	checkf(FullModelInput.Num() == 900, TEXT("Incorrect length of Feature Array. Expected 900"));
+	for (int i = 30; i < 900; i++)
+	{
+		FullModelInput[i - 30] = FullModelInput[i];
+	}
+
+	int start_idx = 870;
+	FullModelInput[start_idx + 0] = user_location.X;
+	FullModelInput[start_idx + 1] = user_location.Y;
+	FullModelInput[start_idx + 2] = agv_to_user_distance.X;
+	FullModelInput[start_idx + 3] = agv_to_user_distance.Y;
+	FullModelInput[start_idx + 4] = agv_speed.X;
+	FullModelInput[start_idx + 5] = agv_speed.Y;
+	FullModelInput[start_idx + 6] = agv_speed.Length();
+	FullModelInput[start_idx + 7] = abs(user_velocity.X);
+	FullModelInput[start_idx + 8] = abs(user_velocity.Y);
+	FullModelInput[start_idx + 9] = user_velocity.Length();
+	FullModelInput[start_idx + 10] = user_velocity.X;
+	FullModelInput[start_idx + 11] = user_velocity.Y;
+	FullModelInput[start_idx + 12] = wait_time;
+	FullModelInput[start_idx + 13] = intent_to_cross;
+	FullModelInput[start_idx + 14] = gazing_station;
+	//FullModelInput[start_idx + 15] = possible_interaction;
+	FullModelInput[start_idx + 15] = facing_sidewalk;
+	FullModelInput[start_idx + 16] = facing_road;
+	FullModelInput[start_idx + 17] = on_sidewalk;
+	FullModelInput[start_idx + 18] = on_road;
+	FullModelInput[start_idx + 19] = closest_station;
+	FullModelInput[start_idx + 20] = distance_to_closest_station.Length();
+	FullModelInput[start_idx + 21] = distance_to_closest_station.X;
+	FullModelInput[start_idx + 22] = distance_to_closest_station.Y;
+	FullModelInput[start_idx + 23] = looking_at_agv;
+	FullModelInput[start_idx + 24] = gaze_vector_3d.X;
+	FullModelInput[start_idx + 25] = gaze_vector_3d.Y;
+	FullModelInput[start_idx + 26] = gaze_vector_3d.Z;
+	FullModelInput[start_idx + 27] = agv_location.X;
+	FullModelInput[start_idx + 28] = agv_location.Y;
+	FullModelInput[start_idx + 29] = looking_at_closest_station;
+}
+
+
+void AFeatures::PrintPositions(const TArray<float>& ModelOutput)
+{
+	//checkf(ModelOutput.Num() == 80, TEXT("Expected an array size of 80"));
+	for (int i = 0; (int) i < ModelOutput.Num() / 2; i++)
+	{
+		//FString out = FString::Printf("(%.2f, %.2f)", ModelOutput[2 * i], ModelOutput[2 * i + 1]);
+		UE_LOG(LogTemp, Display, TEXT("(%.2f, %.2f)"), ModelOutput[2 * i], ModelOutput[2 * i + 1]);
+	}
 }

@@ -105,10 +105,10 @@ bool AFiniteAutomaton::reset()
 
 bool AFiniteAutomaton::AtStationStateChecker(AFeatures* current) const
 {
-	bool near_start_station = current->distance_from_start_station.X < this->constants.STATION_LENGTH;
-	near_start_station = near_start_station && current->distance_from_start_station.Y < this->constants.AT_STATION_THRESHOLD;
+	bool near_start_station = current->distance_to_closest_station.X < this->constants.STATION_LENGTH;
+	near_start_station = near_start_station && current->distance_to_closest_station.Y < this->constants.AT_STATION_THRESHOLD;
 
-	bool facing_start_station = current->facing_start_station;
+	bool facing_start_station = current->gazing_station == current->closest_station;
 
 	bool stationary = current->user_velocity.Length() < this->constants.WALK_WAIT_THRESHOLD;
 
