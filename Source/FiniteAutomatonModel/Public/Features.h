@@ -95,6 +95,9 @@ public:
 	bool copyFrom(AFeatures* Other);
 
 	UFUNCTION(BlueprintCallable)
+	FString GetDataString(int agent_id, const FString& state, bool is_header = false);
+
+	UFUNCTION(BlueprintCallable)
 	void CreateInputArray(UPARAM(Ref) TArray<float>& FullModelInput, int TimestampID);
 
 	UFUNCTION(BlueprintCallable)

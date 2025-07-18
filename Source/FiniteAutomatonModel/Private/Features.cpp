@@ -59,13 +59,6 @@ void AFeatures::SetDefaults()
 	this->begin_wait_flag = false;
 	this->agv_passed = false;
 
-	/*this->start_station_id = 0;
-	this->end_station_id = 1;
-	this->distance_from_start_station = FVector2D(0.0, 0.0);
-	this->distance_from_end_station = FVector2D(0.0, 0.0);
-	this->facing_start_station = true;
-	this->facing_end_station = false;*/
-
 	this->looking_at_closest_station = false;
 
 	// Frequency
@@ -84,12 +77,6 @@ void AFeatures::SetRawFeatures(float user_x, float user_y, float agv_x, float ag
 }
 
 
-/*void AFeatures::SetStationInfo(int start_station, int end_station)
-{
-	this->start_station_id = start_station;
-	this->end_station_id = end_station;
-}*/
-
 void AFeatures::GenerateRemainingFeatures(AFeatures* previous)
 {
 	this->agv_to_user_distance = (this->user_location - this->agv_location).GetAbs();
@@ -97,15 +84,6 @@ void AFeatures::GenerateRemainingFeatures(AFeatures* previous)
 	this->agv_velocity = (this->agv_location - previous->agv_location) * this->constants.FRAMERATE;
 	this->user_velocity = (this->user_location - previous->user_location) * this->constants.FRAMERATE;
 	this->is_user_moving = (user_velocity.Length() > this->constants.WALK_WAIT_THRESHOLD);
-
-	/*// TODO: Change this when needed. We are currently not using the wait time feature for anything
-	if (this->user_velocity.Length() < this->constants.WALK_WAIT_THRESHOLD)
-	{
-		this->wait_time = previous->wait_time + 1.0 / this->constants.FRAMERATE;
-	}
-	else {
-		this->wait_time = 0.f;
-	}*/
 
 	this->on_sidewalk = WithinSidewalkBounds(&this->user_location, this->constants.MARGIN_NEAR_SIDEWALKS);
 	this->on_road = WithinRoadBounds(&this->user_location, this->constants.MARGIN_NEAR_SIDEWALKS / 2.0);
@@ -115,9 +93,6 @@ void AFeatures::GenerateRemainingFeatures(AFeatures* previous)
 
 	// Closest station
 	this->ClosestStationComputations();
-
-	// Start and end station distance and facing computations
-	//this->StartAndEndStationsComputations();
 
 	// Looking at AGV
 	this->looking_at_agv = LookingAtAGV();
@@ -236,7 +211,7 @@ void AFeatures::WaitTimeComputations(AFeatures* previous)
 	}
 	else //User was in the wait state in the previous timestep
 	{
-		if (!this - is_user_moving)
+		if (!this->is_user_moving)
 		{
 			this->wait_time = previous->wait_time + 1.f / this->constants.FRAMERATE;
 		}
@@ -268,34 +243,6 @@ void AFeatures::ClosestStationComputations()
 	this->distance_to_closest_station = (this->constants.STATIONS[_closest_station] - this->user_location).GetAbs();
 }
 
-/*void AFeatures::StartAndEndStationsComputations()
-{
-	FVector2D* start_station_coords = &this->constants.STATIONS[this->start_station_id];
-	FVector2D user_to_start = -(this->user_location - *start_station_coords);
-	this->distance_from_start_station = user_to_start.GetAbs();
-
-	// Angle between gaze vector 2d and the vector from start station to user should be small
-	FVector2D normalized = user_to_start.GetSafeNormal();
-	if (normalized.Dot(this->gaze_vector_2d) > this->constants.GAZING_ANGLE_THRESHOLD_COS)
-	{
-		this->facing_start_station = true;
-	}
-	else {
-		this->facing_start_station = false;
-	}
-
-	FVector2D* end_station_coords = &this->constants.STATIONS[this->end_station_id];
-	FVector2D user_to_end = -(this->user_location - *end_station_coords);
-	this->distance_from_end_station = user_to_end.GetAbs();
-	normalized = user_to_end.GetSafeNormal();
-	if (normalized.Dot(this->gaze_vector_2d) > this->constants.GAZING_ANGLE_THRESHOLD_COS)
-	{
-		this->facing_end_station = true;
-	}
-	else {
-		this->facing_end_station = false;
-	}
-}*/
 
 bool AFeatures::LookingAtAGV() const
 {
@@ -401,17 +348,6 @@ bool AFeatures::copyFrom(AFeatures* Other)
 	this->possible_interaction = Other->possible_interaction;
 	this->looking_at_closest_station = Other->looking_at_closest_station;
 
-	// Station info
-	//this->start_station_id = Other->start_station_id;
-	//this->end_station_id = Other->end_station_id;
-
-	// Start and end station features
-	//this->distance_from_start_station = Other->distance_from_start_station;
-	//this->distance_from_end_station = Other->distance_from_end_station;
-	//this->facing_start_station = Other->facing_start_station;
-	//this->facing_end_station = Other->facing_end_station;
-
-
 	return true;
 }
 
@@ -507,4 +443,76 @@ void AFeatures::PrintPositions(const TArray<float>& ModelOutput)
 		//FString out = FString::Printf("(%.2f, %.2f)", ModelOutput[2 * i], ModelOutput[2 * i + 1]);
 		UE_LOG(LogTemp, Display, TEXT("(%.2f, %.2f)"), ModelOutput[2 * i], ModelOutput[2 * i + 1]);
 	}
+}
+
+
+// Returns the data string as a CSV string
+// NOTE: currently not using the AGV-related features
+FString AFeatures::GetDataString(int agent_id, const FString& state, bool is_header) {
+	if (is_header) {
+		FString header = "Agent_ID,User_X,User_Y,User_speed_X,User_speed_Y,User_speed,User_velocity_X,User_velocity_Y,";
+		header += "Wait_time,intent_to_cross,Gazing_station,facing_along_sidewalk,facing_to_road,";
+		header += "On_sidewalks,On_road,closest_station,distance_to_closest_station,distance_to_closest_station_X,distance_to_closest_station_Y";
+		header += "GazeDirection_X,GazeDirection_Y,GazeDirection_Z,looking_at_closest_station,State";
+	}
+	FString data_string{""};
+
+	// Agent ID
+	data_string += FString::FromInt(agent_id) + ",";
+
+	// User location
+	data_string += FString::SanitizeFloat(user_location.X) + ",";
+	data_string += FString::SanitizeFloat(user_location.Y) + ",";
+
+	// User speed
+	data_string += FString::SanitizeFloat(abs(user_velocity.X)) + ",";
+	data_string += FString::SanitizeFloat(abs(user_velocity.Y)) + ",";
+	data_string += FString::SanitizeFloat(user_velocity.Length()) + ",";
+
+	// User velocity
+	data_string += FString::SanitizeFloat(user_velocity.X) + ",";
+	data_string += FString::SanitizeFloat(user_velocity.Y) + ",";
+
+	// Wait time
+	data_string += FString::SanitizeFloat(wait_time) + ",";
+
+	// Intent to cross
+	data_string += intent_to_cross ? "TRUE," : "FALSE,";
+
+	// Gazing Station
+	data_string += FString::FromInt(gazing_station) + ",";
+
+	// Facing sidewalk
+	data_string += facing_sidewalk ? "TRUE," : "FALSE,";
+
+	// Facing road
+	data_string += facing_road ? "TRUE," : "FALSE,";
+
+	// On sidewalk
+	data_string += on_sidewalk ? "TRUE," : "FALSE,";
+
+	// On road
+	data_string += on_road ? "TRUE," : "FALSE,";
+
+	// closest station
+	data_string += FString::FromInt(closest_station) + ",";
+	data_string += FString::SanitizeFloat(distance_to_closest_station.Length()) + ",";
+	data_string += FString::SanitizeFloat(distance_to_closest_station.X) + ",";
+	data_string += FString::SanitizeFloat(distance_to_closest_station.Y) + ",";
+
+	// Gaze direction
+	data_string += FString::SanitizeFloat(gaze_vector_3d.X) + ",";
+	data_string += FString::SanitizeFloat(gaze_vector_3d.Y) + ",";
+	data_string += FString::SanitizeFloat(gaze_vector_3d.Z) + ",";
+
+	// Looking at closest station
+	data_string += looking_at_closest_station ? "TRUE," : "FALSE,";
+	
+	// State
+	data_string += state;
+	
+	// New line
+	data_string += LINE_TERMINATOR;
+
+	return data_string;
 }
